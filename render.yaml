@@ -4,6 +4,7 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /docs # FastAPI's OpenAPI documentation path
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.0
@@ -14,23 +15,32 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: CORS_ORIGINS
-        value: ${RENDER_EXTERNAL_URL}  # This will automatically set to your frontend URL
+        value: ${diet-tracker-frontend.RENDER_EXTERNAL_URL} # Frontend URL for CORS
+    disk:
+      name: diet-pdfs
+      mountPath: /opt/render/project/src/dietpdfs
+      sizeGB: 1
+    autoDeploy: true
 
   - type: web
     name: diet-tracker-frontend
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    healthCheckPath: /_stcore/health
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: API_URL
-        value: ${diet-tracker-api.RENDER_EXTERNAL_URL}  # Automatically links to your API URL
+        value: ${diet-tracker-api.RENDER_EXTERNAL_URL} # API URL for frontend
       - key: OPENAI_API_KEY
         sync: false
+    autoDeploy: true
+    dependencies:
+      - name: diet-tracker-api
 
 databases:
   - name: diet-tracker-db
     databaseName: diet_tracker
     plan: free
-    ipAllowList: []  # Allows all IPs
+    ipAllowList: [] # Allows all IPs

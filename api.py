@@ -39,6 +39,38 @@ def get_db():
     finally:
         db.close()
 
+# Test endpoints
+@app.get("/test/health")
+def health_check():
+    """Test endpoint to check if the API is running"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.get("/test/version")
+def version_check():
+    """Test endpoint to get API version information"""
+    return {
+        "version": "1.0.0",
+        "python_version": os.sys.version,
+        "fastapi_running": True
+    }
+
+@app.get("/test/database")
+def database_check(db: Session = Depends(get_db)):
+    """Test endpoint to verify database connectivity"""
+    try:
+        # Try to make a simple query
+        db.query(DietRequirement).first()
+        return {
+            "status": "connected",
+            "database_url": os.getenv('DATABASE_URL', 'sqlite:///diet_tracker.db'),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
+
 def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) -> str:
     """Get AI-powered diet recommendations"""
     try:
