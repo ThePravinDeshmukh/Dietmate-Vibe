@@ -2,6 +2,10 @@ import os
 import pdfplumber
 import pandas as pd
 from pathlib import Path
+import warnings
+
+# Suppress pdfplumber warnings about CropBox
+warnings.filterwarnings('ignore', message='.*CropBox.*')
 
 class DietDataProcessor:
     def __init__(self, pdf_directory="dietpdfs"):

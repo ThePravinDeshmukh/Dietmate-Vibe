@@ -61,6 +61,23 @@ def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) ->
     except Exception as e:
         return f"Error getting AI recommendation: {str(e)}"
 
+def normalize_category(category):
+    """Normalize category names to match requirements"""
+    # Convert to lowercase and remove 'exchange' suffix
+    normalized = category.lower().replace(' exchange', '')
+    
+    # Map specific cases
+    mapping = {
+        'dried fruits': 'dried fruit',
+        'fresh fruits': 'fresh fruit',
+        'other vegetable': 'other vegetables',
+        'root vegetable': 'root vegetables',
+        'leafy vegetable': 'other vegetables',  # Consider leafy as part of other vegetables
+        'misc free group': 'free group',
+        'juices': 'free group'  # Map juices to free group
+    }
+    return mapping.get(normalized, normalized)
+
 @app.get("/categories")
 def get_categories():
     """Get all available food categories"""
@@ -82,24 +99,112 @@ class DietEntryCreate(BaseModel):
     unit: str
     notes: str | None = None
 
+# Add new Pydantic model for batch entries
+class BatchDietEntries(BaseModel):
+    entries: List[DietEntryCreate]
+
 @app.post("/entries/")
 def add_diet_entry(
     entry: DietEntryCreate,
     db: Session = Depends(get_db)
 ):
     """Add a new diet entry"""
-    db_entry = DietEntry(
-        food_item=entry.food_item,
-        category=entry.category,
-        amount=entry.amount,
-        unit=entry.unit,
-        notes=entry.notes,
-        date=date.today()
-    )
-    db.add(db_entry)
+    # Normalize the category
+    normalized_category = normalize_category(entry.category)
+    
+    # Check if entry already exists for this category today
+    today = date.today()
+    existing_entry = db.query(DietEntry).filter(
+        DietEntry.date == today,
+        DietEntry.category == normalized_category
+    ).first()
+    
+    if existing_entry:
+        # Update existing entry
+        existing_entry.amount = entry.amount  # Replace instead of add
+        existing_entry.notes = entry.notes
+    else:
+        # Create new entry
+        db_entry = DietEntry(
+            food_item=entry.food_item,
+            category=normalized_category,
+            amount=entry.amount,
+            unit=entry.unit,
+            notes=entry.notes,
+            date=today
+        )
+        db.add(db_entry)
+    
     db.commit()
-    db.refresh(db_entry)
-    return db_entry
+    return {"status": "success"}
+
+@app.post("/entries/batch")
+def add_diet_entries_batch(
+    batch: BatchDietEntries,
+    db: Session = Depends(get_db)
+):
+    """Add multiple diet entries in a single transaction"""
+    today = date.today()
+    try:
+        # Get all existing entries for today
+        existing_entries = {
+            entry.category: entry 
+            for entry in db.query(DietEntry).filter(DietEntry.date == today).all()
+        }
+        
+        # Update or create entries in a single transaction
+        for entry in batch.entries:
+            # Normalize the category
+            normalized_category = normalize_category(entry.category)
+            
+            if normalized_category in existing_entries:
+                # Update existing entry
+                existing = existing_entries[normalized_category]
+                existing.amount = entry.amount
+                existing.notes = entry.notes
+            else:
+                # Create new entry
+                db_entry = DietEntry(
+                    food_item=entry.food_item,
+                    category=normalized_category,
+                    amount=entry.amount,
+                    unit=entry.unit,
+                    notes=entry.notes,
+                    date=today
+                )
+                db.add(db_entry)
+        
+        db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/entries/reset")
+def reset_entries(db: Session = Depends(get_db)):
+    """Reset all entries for today to 0"""
+    today = date.today()
+    try:
+        # Delete all entries for today
+        db.query(DietEntry).filter(DietEntry.date == today).delete()
+        
+        # Create new entries with 0 values for all categories
+        for category in food_categories:
+            db_entry = DietEntry(
+                food_item=category,
+                category=category,
+                amount=0,
+                unit="exchange" if category in ["cereal", "dried fruit", "fresh fruit", "legumes", "other vegetables", "root vegetables", "free group"] else "grams",
+                notes="Reset to 0",
+                date=today
+            )
+            db.add(db_entry)
+        
+        db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/entries/{date_str}")
 def get_daily_entries(date_str: str, db: Session = Depends(get_db)):
@@ -107,7 +212,19 @@ def get_daily_entries(date_str: str, db: Session = Depends(get_db)):
     try:
         query_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         entries = db.query(DietEntry).filter(DietEntry.date == query_date).all()
-        return entries
+        
+        # Properly serialize the model objects
+        return [
+            {
+                "category": entry.category,
+                "food_item": entry.food_item,
+                "amount": float(entry.amount),  # Ensure amount is float
+                "unit": entry.unit,
+                "notes": entry.notes,
+                "date": entry.date.isoformat()
+            }
+            for entry in entries
+        ]
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 

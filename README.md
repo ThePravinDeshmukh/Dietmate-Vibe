@@ -58,7 +58,7 @@ streamlit run app.py
 
 The application will be available at:
 - Frontend: http://localhost:8501
-- API Documentation: http://localhost:8000/docs
+- API Documentation: http://localhost:8000/docsta
 
 ## Project Structure
 
