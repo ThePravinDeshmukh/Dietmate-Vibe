@@ -3,12 +3,10 @@ services:
     name: diet-tracker-api
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python api.py
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.0
-      - key: PORT
-        value: 10000
       - key: DATABASE_URL
         fromDatabase:
           name: diet-tracker-db
@@ -16,7 +14,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: CORS_ORIGINS
-        sync: false
+        value: ${RENDER_EXTERNAL_URL}  # This will automatically set to your frontend URL
 
   - type: web
     name: diet-tracker-frontend
@@ -27,10 +25,12 @@ services:
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: API_URL
-        sync: false
+        value: ${diet-tracker-api.RENDER_EXTERNAL_URL}  # Automatically links to your API URL
       - key: OPENAI_API_KEY
         sync: false
 
 databases:
   - name: diet-tracker-db
+    databaseName: diet_tracker
     plan: free
+    ipAllowList: []  # Allows all IPs
