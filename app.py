@@ -1,11 +1,12 @@
+import os
 import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime, date, time
 import plotly.express as px
 
-# API endpoint
-API_URL = "http://localhost:8000"
+# API endpoint - use environment variable with fallback
+API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
 st.set_page_config(page_title="Diet Tracker", layout="wide")
 

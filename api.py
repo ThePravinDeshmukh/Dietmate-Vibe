@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
 from datetime import date, datetime
 import openai
@@ -14,6 +15,16 @@ from diet_data_processor import DietDataProcessor
 load_dotenv()
 
 app = FastAPI(title="Diet Tracking API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:8501").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 diet_processor = DietDataProcessor()
 food_categories = diet_processor.process_all_pdfs()
 

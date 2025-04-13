@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, Float, String, Date, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import os
 
 Base = declarative_base()
 
@@ -32,7 +33,15 @@ class DietEntry(Base):
         return f"{self.date}: {self.food_item} - {self.amount} {self.unit}"
 
 # Create database and tables
-def init_db(db_url="sqlite:///diet_tracker.db"):
+def init_db(db_url=None):
+    """Initialize database with support for both SQLite and PostgreSQL"""
+    if db_url is None:
+        db_url = os.getenv('DATABASE_URL', 'sqlite:///diet_tracker.db')
+        
+        # Handle Heroku-style PostgreSQL URLs
+        if db_url.startswith('postgres://'):
+            db_url = db_url.replace('postgres://', 'postgresql://', 1)
+    
     engine = create_engine(db_url)
     Base.metadata.create_all(engine)
     return engine
