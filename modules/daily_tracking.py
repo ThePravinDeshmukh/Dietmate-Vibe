@@ -122,12 +122,10 @@ def show_daily_tracking(api_url):
             # Add 7-day history chart
             st.subheader("7-Day History")
             history_data = []
-            data_found = False
             for i in range(7):
                 day = today - pd.Timedelta(days=i)
                 entries = load_daily_entries(day.strftime("%Y-%m-%d"), api_url)
                 if entries:
-                    data_found = True
                     day_df = pd.DataFrame(entries)
                     day_progress = day_df.groupby("category")["amount"].sum().reset_index()
                     day_progress["required"] = day_progress["category"].map(
@@ -141,12 +139,15 @@ def show_daily_tracking(api_url):
                     })
             
             history_df = pd.DataFrame(history_data)
-            if not history_df.empty and data_found:
+            if not history_df.empty:
+                # Sort by date to ensure correct order
+                history_df = history_df.sort_values("date")
+                
                 fig = px.bar(
                     history_df,
                     x="date",
                     y="completion",
-                    title="Diet Completion History (%)",
+                    title=f"Diet Completion History - Last {len(history_df)} days (%)",
                     labels={"date": "Date", "completion": "Completion %"}
                 )
                 fig.update_layout(
@@ -156,8 +157,11 @@ def show_daily_tracking(api_url):
                     margin=dict(t=30, b=50)
                 )
                 st.plotly_chart(fig, use_container_width=True)
+                
+                if len(history_df) < 7:
+                    st.info(f"Showing data for {len(history_df)} days. The chart will include up to 7 days of history as more data becomes available.")
             else:
-                st.info("No historical data available yet. The history chart will appear here once you have tracked your diet for a few days.")
+                st.info("Start tracking your diet today! The history chart will appear here once you save your first entries.")
             
             # Show smart suggestions
             st.subheader("Smart Suggestions")

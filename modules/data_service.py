@@ -51,6 +51,13 @@ def save_entries(changes, date=None):
                 SET amount = ? 
                 WHERE date = ? AND category = ?
             """, (amount, date, category))
+            
+            # If no rows were updated, insert a new row
+            if cursor.rowcount == 0:
+                cursor.execute("""
+                    INSERT INTO daily_tracking (date, category, amount)
+                    VALUES (?, ?, ?)
+                """, (date, category, amount))
         
         conn.commit()
         conn.close()

@@ -92,12 +92,11 @@ def save_entries(entries):
     )
     return response.status_code == 200
 
-def update_progress_data():
+def update_progress_data(selected_date_str):
     """Update cached daily entries"""
-    today = date.today().strftime("%Y-%m-%d")
     # Clear the cache before updating
     load_daily_entries.clear()
-    st.session_state.daily_entries = load_daily_entries(today)
+    st.session_state.daily_entries = load_daily_entries(selected_date_str)
     st.session_state.last_update = datetime.now()
 
 def get_consumed_amounts():
@@ -109,10 +108,10 @@ def get_consumed_amounts():
             consumed[category] = float(entry['amount'])
     return consumed
 
-def reset_all_values():
+def reset_all_values(selected_date_str=None):
     """Reset all values to 0 in the database and clear session state"""
     # Call the reset endpoint
-    response = requests.post(f"{API_URL}/entries/reset")
+    response = requests.post(f"{API_URL}/entries/reset", json={"date": selected_date_str})
     success = response.status_code == 200
     
     if success:
@@ -279,31 +278,22 @@ if page == "Daily Tracking":
     # Add styles
     st.markdown(SLIDER_STYLES, unsafe_allow_html=True)
     
+    # Add date selector at the top
+    selected_date = st.date_input("Select Date to Edit", date.today())
+    selected_date_str = selected_date.strftime("%Y-%m-%d")
+    
     # Initialize session state for save button
     if 'save_status' not in st.session_state:
         st.session_state.save_status = ""
     if 'last_saved_values' not in st.session_state:
         st.session_state.last_saved_values = {}
     
-    # Function to check if there are unsaved changes
-    def has_unsaved_changes():
-        current_values = {k: v for k, v in st.session_state.items() if k.startswith('slider_')}
-        return current_values != st.session_state.last_saved_values
-    
-    # Remove extra spacing
-    st.markdown("""
-        <style>
-            .block-container {padding-top: 2rem; padding-bottom: 0rem;}
-            .element-container {margin: 0.1rem 0;}
-            div[data-testid="stVerticalBlock"] > div {margin-bottom: 0.1rem;}
-        </style>
-    """, unsafe_allow_html=True)
-    
     # Update data only when needed
     if (st.session_state.daily_entries is None or 
         st.session_state.last_update is None or 
         (datetime.now() - st.session_state.last_update).seconds > 300):
-        update_progress_data()
+        st.session_state.daily_entries = load_daily_entries(selected_date_str)
+        st.session_state.last_update = datetime.now()
     
     # Calculate and display overall completion at the top
     if st.session_state.daily_entries:
@@ -352,8 +342,8 @@ if page == "Daily Tracking":
         
         # Add Reset button at the top
         if st.button("Reset All Values", type="secondary"):
-            if reset_all_values():
-                st.success("All values reset to 0")
+            if reset_all_values(selected_date_str):
+                st.success(f"All values reset to 0 for {selected_date_str}")
                 st.rerun()
             else:
                 st.error("Failed to reset values")
@@ -394,7 +384,7 @@ if page == "Daily Tracking":
         if st.button("Save All Changes", use_container_width=True):
             if save_entries(slider_values):
                 st.success("Saved!")
-                update_progress_data()  # Update cache after save
+                update_progress_data(selected_date_str)  # Update cache after save
                 st.rerun()
             else:
                 st.error("Save failed")
@@ -509,4 +499,3 @@ else:  # Recommendations page
                     title="Daily Requirements Completion (%)")
         fig.update_layout(yaxis_range=[0, 100])
         st.plotly_chart(fig)
-# Removed invalid backticks
