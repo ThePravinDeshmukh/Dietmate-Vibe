@@ -269,7 +269,6 @@ def get_recommendations():
         return data.get("recommendations", "No recommendations available")
     return "Failed to get recommendations"
 
-st.title("Child Diet Tracking System")
 
 # Sidebar for navigation
 page = st.sidebar.selectbox("Select Page", ["Daily Tracking", "View History", "Recommendations"])
