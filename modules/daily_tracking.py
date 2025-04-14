@@ -10,7 +10,9 @@ from .utils import (
     get_time_based_completion_target,
     get_hours_until_midnight,
     get_smart_suggestions,
-    sort_categories_by_completion
+    sort_categories_by_completion,
+    DAILY_REQUIREMENTS,
+    CACHE_TTL
 )
 
 def load_daily_entries(date_str, api_url, cache_ttl=300):
@@ -82,10 +84,11 @@ def show_daily_tracking(api_url):
     """, unsafe_allow_html=True)
     
     # Update data when needed
+    today = date.today()
     if (st.session_state.daily_entries is None or 
         st.session_state.last_update is None or 
         (datetime.now() - st.session_state.last_update).seconds > CACHE_TTL):
-        st.session_state.daily_entries = load_daily_entries(date.today().strftime("%Y-%m-%d"), api_url)
+        st.session_state.daily_entries = load_daily_entries(today.strftime("%Y-%m-%d"), api_url)
         st.session_state.last_update = datetime.now()
     
     # Display overall completion metrics
@@ -115,6 +118,46 @@ def show_daily_tracking(api_url):
             with col_metric3:
                 time_remaining = get_hours_until_midnight()
                 st.metric("Time Until Next Reset", time_remaining)
+
+            # Add 7-day history chart
+            st.subheader("7-Day History")
+            history_data = []
+            data_found = False
+            for i in range(7):
+                day = today - pd.Timedelta(days=i)
+                entries = load_daily_entries(day.strftime("%Y-%m-%d"), api_url)
+                if entries:
+                    data_found = True
+                    day_df = pd.DataFrame(entries)
+                    day_progress = day_df.groupby("category")["amount"].sum().reset_index()
+                    day_progress["required"] = day_progress["category"].map(
+                        lambda x: DAILY_REQUIREMENTS.get(x, {"amount": 1.0})["amount"]
+                    )
+                    day_progress["percentage"] = (day_progress["amount"] / day_progress["required"] * 100).clip(0, 100)
+                    overall = calculate_overall_completion(day_progress)
+                    history_data.append({
+                        "date": day.strftime("%Y-%m-%d"),
+                        "completion": overall
+                    })
+            
+            history_df = pd.DataFrame(history_data)
+            if not history_df.empty and data_found:
+                fig = px.bar(
+                    history_df,
+                    x="date",
+                    y="completion",
+                    title="Diet Completion History (%)",
+                    labels={"date": "Date", "completion": "Completion %"}
+                )
+                fig.update_layout(
+                    xaxis_tickangle=-45,
+                    yaxis_range=[0, 100],
+                    height=300,
+                    margin=dict(t=30, b=50)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No historical data available yet. The history chart will appear here once you have tracked your diet for a few days.")
             
             # Show smart suggestions
             st.subheader("Smart Suggestions")
