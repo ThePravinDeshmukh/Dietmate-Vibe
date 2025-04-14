@@ -113,18 +113,6 @@ def render_category_sliders(consumed_amounts):
     
     return changes
 
-def render_save_button(changes):
-    """Render save button and handle saving changes"""
-    if changes:
-        if st.button("Save Changes", key="save_changes"):
-            from .data_service import save_entries
-            if save_entries(changes):
-                st.success("Changes saved successfully!")
-                st.session_state.last_saved_values = changes.copy()
-                st.experimental_rerun()
-            else:
-                st.error("Failed to save changes")
-
 def initialize_session_state():
     """Initialize session state variables"""
     if 'initialized' not in st.session_state:

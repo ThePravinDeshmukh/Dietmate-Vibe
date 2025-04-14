@@ -36,7 +36,7 @@ DAILY_REQUIREMENTS = {
     "candies": {"amount": 2, "unit": "exchange"}
 }
 
-# Add CSS for slider colors and floating button
+# Add CSS for slider colors
 SLIDER_STYLES = """
 <style>
     /* Green color for completed sliders */
@@ -45,42 +45,6 @@ SLIDER_STYLES = """
     }
     div[data-testid="stSlider"][aria-valuenow="100"] .stSlider > div > div > div > div {
         background-color: #1e7e34 !important;
-    }
-    
-    /* Floating save button */
-    .floating-save-button {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 999999;
-        background-color: #2ecc40;
-        color: white;
-        padding: 15px 30px;
-        border-radius: 30px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-weight: bold;
-    }
-    
-    .floating-save-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-    }
-    
-    /* Animation for save success */
-    @keyframes saveSuccess {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-        100% { transform: scale(1); }
-    }
-    
-    .save-success {
-        animation: saveSuccess 0.5s ease;
     }
 </style>
 """
@@ -435,39 +399,6 @@ if page == "Daily Tracking":
                 st.rerun()
             else:
                 st.error("Save failed")
-    
-    # Create floating save button with dynamic state
-    save_button_color = "#2ecc40" if has_unsaved_changes() else "#888888"
-    save_button_html = f"""
-        <div class="floating-save-button" style="background-color: {save_button_color}"
-             onclick="document.dispatchEvent(new CustomEvent('saveChanges'))">
-            💾 Save Changes
-        </div>
-    """
-    
-    # Add JavaScript to handle save button click
-    st.markdown("""
-        <script>
-            document.addEventListener('saveChanges', function() {
-                window.streamlit.setComponentValue('save_clicked', true);
-            });
-        </script>
-    """, unsafe_allow_html=True)
-    
-    # Display floating save button
-    st.markdown(save_button_html, unsafe_allow_html=True)
-    
-    # Handle save operation
-    if st.session_state.get('save_clicked', False):
-        st.session_state.save_clicked = False  # Reset click state
-        if save_entries(slider_values):
-            st.session_state.last_saved_values = {k: v for k, v in st.session_state.items() if k.startswith('slider_')}
-            st.session_state.save_status = "success"
-            update_progress_data()
-            st.rerun()
-        else:
-            st.session_state.save_status = "error"
-            st.error("Failed to save changes")
     
     with col2:
         if st.session_state.daily_entries:
