@@ -28,66 +28,172 @@ DAILY_REQUIREMENTS = {
 
 # Custom CSS styles
 CUSTOM_CSS = """
-    /* Reduce spacing in the main container */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: -2rem;
-    }
-    
-    /* Reduce spacing between elements */
-    .element-container {
-        margin: 0.25rem 0 !important;
-    }
-    
-    /* Make vertical blocks more compact */
-    div[data-testid="stVerticalBlock"] > div {
-        margin-bottom: 0.25rem !important;
-        padding-bottom: 0 !important;
-    }
-    
-    /* Reduce padding in columns */
-    .stColumn {
-        padding: 0.5rem !important;
-    }
-    
-    /* More compact headers */
-    h1, h2, h3 {
-        margin: 0 !important;
-        padding: 0.2rem 0 !important;
-    }
-    
-    /* Compact dataframe display */
-    .dataframe {
-        margin: 0 !important;
-        padding: 0.2rem !important;
-    }
-    
-    /* Reduce slider padding */
-    .stSlider {
-        padding: 0.2rem 0 !important;
-    }
-    
-    /* Make metric containers more compact */
-    [data-testid="stMetricValue"] {
-        font-size: 1.2rem !important;
-    }
-    
-    /* Sidebar adjustments */
-    .css-1d391kg {
-        padding-top: 1rem !important;
-    }
-    
-    /* More compact buttons */
-    .stButton button {
-        padding: 0.2rem 1rem !important;
-    }
-    
-    /* Green color for completed sliders */
-    div[data-testid="stSlider"][aria-valuenow="100"] .stSlider > div > div > div {
-        background-color: #28a745 !important;
-    }
-    div[data-testid="stSlider"][aria-valuenow="100"] .stSlider > div > div > div > div {
-        background-color: #1e7e34 !important;
-    }
+<style>
+/* Reset and base styles */
+div.stApp {
+    background-color: transparent;
+}
+
+/* Main container adjustments - reduced padding */
+.block-container {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0 !important;
+    max-width: 98% !important;  /* Increased width to reduce side margins */
+}
+
+/* Tighter element spacing */
+.element-container {
+    margin-bottom: 0.25rem !important;
+}
+
+/* Tighter block spacing */
+div[data-testid="stVerticalBlock"] {
+    gap: 0.25rem !important;
+    padding: 0 !important;
+}
+
+/* Column adjustments - minimal spacing */
+.row-widget {
+    min-height: 0 !important;
+    padding: 0 !important;
+}
+
+/* More compact metric styling */
+[data-testid="stMetricValue"] {
+    font-size: 0.9rem !important;
+    line-height: 1.1 !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+[data-testid="stMetricDelta"] {
+    font-size: 0.75rem !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Ultra compact slider */
+.stSlider {
+    padding: 0.1rem 0 !important;
+    margin: 0 !important;
+}
+
+div[data-baseweb="slider"] {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+div[data-baseweb="slider"] [role="slider"] {
+    height: 0.9rem !important;
+    width: 0.9rem !important;
+    margin-top: -0.45rem !important;
+}
+
+div[data-baseweb="slider"] [data-testid="stThumbValue"] {
+    font-size: 0.65rem !important;
+    padding: 0.1rem 0.2rem !important;
+}
+
+div[data-baseweb="slider"] [role="progressbar"] {
+    height: 0.2rem !important;
+}
+
+/* Ultra compact charts */
+.js-plotly-plot {
+    margin: 0 !important;
+}
+
+.plot-container {
+    margin: 0 !important;
+}
+
+/* Compact text elements */
+div.stMarkdown {
+    font-size: 0.85rem !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+div.stMarkdown p {
+    margin-bottom: 0.1rem !important;
+}
+
+/* Compact headers */
+h1, h2, h3 {
+    margin: 0 0 0.25rem 0 !important;
+    padding: 0 !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+}
+
+/* Compact tables */
+.dataframe {
+    font-size: 0.8rem !important;
+    margin: 0 !important;
+}
+
+.dataframe th {
+    padding: 0.2rem !important;
+}
+
+.dataframe td {
+    padding: 0.2rem !important;
+}
+
+/* Compact buttons */
+.stButton > button {
+    padding: 0.2rem 0.8rem !important;
+    font-size: 0.85rem !important;
+    margin: 0 !important;
+}
+
+/* Compact status messages */
+.stSuccess, .stInfo, .stError {
+    padding: 0.25rem !important;
+    font-size: 0.85rem !important;
+    margin: 0.25rem 0 !important;
+}
+
+/* Compact layout containers */
+div[data-testid="stHorizontalBlock"] {
+    gap: 0.5rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Chart containers */
+[data-testid="column"] > div:has(.js-plotly-plot) {
+    padding: 0.25rem !important;
+    margin: 0 !important;
+}
+
+/* Sidebar adjustments */
+section[data-testid="stSidebar"] {
+    padding: 0.5rem 0 !important;
+}
+
+section[data-testid="stSidebar"] .block-container {
+    margin: 0 !important;
+    padding: 0 0.5rem !important;
+}
+
+/* Radio buttons */
+.stRadio > div {
+    gap: 0.5rem !important;
+}
+
+.stRadio label {
+    padding: 0.2rem 0.6rem !important;
+    font-size: 0.85rem !important;
+}
+
+/* Status widget */
+div[data-testid="stStatusWidget"] {
+    visibility: hidden !important;
+}
+</style>
 """

@@ -293,9 +293,9 @@ if page == "Daily Tracking":
     # Remove extra spacing
     st.markdown("""
         <style>
-            .block-container {padding-top: 1rem; padding-bottom: 0rem;}
-            .element-container {margin: 0.5rem 0;}
-            div[data-testid="stVerticalBlock"] > div {margin-bottom: 0.5rem;}
+            .block-container {padding-top: 2rem; padding-bottom: 0rem;}
+            .element-container {margin: 0.1rem 0;}
+            div[data-testid="stVerticalBlock"] > div {margin-bottom: 0.1rem;}
         </style>
     """, unsafe_allow_html=True)
     
