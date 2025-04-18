@@ -145,6 +145,7 @@ class DietEntryCreate(BaseModel):
 # Add new Pydantic model for batch entries
 class BatchDietEntries(BaseModel):
     entries: List[DietEntryCreate]
+    date: str | None = None
 
 @app.post("/entries/")
 def add_diet_entry(
@@ -187,12 +188,19 @@ def add_diet_entries_batch(
     db: Session = Depends(get_db)
 ):
     """Add multiple diet entries in a single transaction"""
-    today = date.today()
     try:
-        # Get all existing entries for today
+        # Use provided date or default to today
+        entry_date = date.today()
+        if batch.date:
+            try:
+                entry_date = datetime.strptime(batch.date, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        
+        # Get all existing entries for the selected date
         existing_entries = {
             entry.category: entry 
-            for entry in db.query(DietEntry).filter(DietEntry.date == today).all()
+            for entry in db.query(DietEntry).filter(DietEntry.date == entry_date).all()
         }
         
         # Update or create entries in a single transaction
@@ -213,7 +221,7 @@ def add_diet_entries_batch(
                     amount=entry.amount,
                     unit=entry.unit,
                     notes=entry.notes,
-                    date=today
+                    date=entry_date
                 )
                 db.add(db_entry)
         
@@ -224,12 +232,22 @@ def add_diet_entries_batch(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/entries/reset")
-def reset_entries(db: Session = Depends(get_db)):
-    """Reset all entries for today to 0"""
-    today = date.today()
+def reset_entries(
+    data: dict = None, 
+    db: Session = Depends(get_db)
+):
+    """Reset all entries for a specific date to 0"""
     try:
-        # Delete all entries for today
-        db.query(DietEntry).filter(DietEntry.date == today).delete()
+        # Use provided date or default to today
+        entry_date = date.today()
+        if data and "date" in data:
+            try:
+                entry_date = datetime.strptime(data["date"], "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        
+        # Delete all entries for the selected date
+        db.query(DietEntry).filter(DietEntry.date == entry_date).delete()
         
         # Create new entries with 0 values for all categories
         for category in food_categories:
@@ -239,7 +257,7 @@ def reset_entries(db: Session = Depends(get_db)):
                 amount=0,
                 unit="exchange" if category in ["cereal", "dried fruit", "fresh fruit", "legumes", "other vegetables", "root vegetables", "free group"] else "grams",
                 notes="Reset to 0",
-                date=today
+                date=entry_date
             )
             db.add(db_entry)
         

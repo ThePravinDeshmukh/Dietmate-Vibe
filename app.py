@@ -73,7 +73,7 @@ def load_daily_entries(date_str):
         ]
     return []
 
-def save_entries(entries):
+def save_entries(entries, date_str=None):
     """Save multiple entries in a single request"""
     entries_list = [
         {
@@ -86,9 +86,14 @@ def save_entries(entries):
         for category, amount in entries.items()
     ]
     
+    # Include the date in the request if provided
+    request_data = {"entries": entries_list}
+    if date_str:
+        request_data["date"] = date_str
+    
     response = requests.post(
         f"{API_URL}/entries/batch",
-        json={"entries": entries_list}
+        json=request_data
     )
     return response.status_code == 200
 
@@ -282,6 +287,23 @@ if page == "Daily Tracking":
     selected_date = st.date_input("Select Date to Edit", date.today())
     selected_date_str = selected_date.strftime("%Y-%m-%d")
     
+    # Track if date has changed
+    if 'previous_date' not in st.session_state:
+        st.session_state.previous_date = selected_date_str
+    
+    # If date changed, force reload of data
+    if st.session_state.previous_date != selected_date_str:
+        st.session_state.daily_entries = None  # Clear cached entries
+        st.session_state.last_update = None    # Reset last update time
+        
+        # Reset slider values when changing dates to avoid carrying over values
+        for category in DAILY_REQUIREMENTS.keys():
+            if f"slider_{category}" in st.session_state:
+                del st.session_state[f"slider_{category}"]
+        
+        # Update the previous date
+        st.session_state.previous_date = selected_date_str
+    
     # Initialize session state for save button
     if 'save_status' not in st.session_state:
         st.session_state.save_status = ""
@@ -382,7 +404,7 @@ if page == "Daily Tracking":
                 )
         
         if st.button("Save All Changes", use_container_width=True):
-            if save_entries(slider_values):
+            if save_entries(slider_values, selected_date_str):
                 st.success("Saved!")
                 update_progress_data(selected_date_str)  # Update cache after save
                 st.rerun()
