@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 from datetime import datetime, date, time
 import plotly.express as px
+from modules import history  # Import the history module
 
 # API endpoint - use environment variable with fallback
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
@@ -452,43 +453,8 @@ if page == "Daily Tracking":
             st.info("No entries yet")
 
 elif page == "View History":
-    st.header("Diet History")
-    
-    # Date selector
-    selected_date = st.date_input("Select Date", date.today())
-    entries = load_daily_entries(selected_date.strftime("%Y-%m-%d"))
-    
-    if entries:
-        df = pd.DataFrame(entries)
-        # Normalize category names
-        df['category'] = df['category'].map(normalize_category)
-        
-        # Show daily summary with percentage of requirements met
-        st.subheader("Daily Summary")
-        summary = df.groupby("category")["amount"].sum().reset_index()
-        
-        # Calculate requirements with error handling
-        def get_requirement(category):
-            normalized = normalize_category(category)
-            if normalized in DAILY_REQUIREMENTS:
-                return DAILY_REQUIREMENTS[normalized]["amount"]
-            return 1.0  # Default value for unknown categories
-            
-        summary["required"] = summary["category"].map(get_requirement)
-        summary["percentage"] = (summary["amount"] / summary["required"] * 100).round(1)
-        summary.columns = ["Category", "Total Amount", "Required", "% Complete"]
-        st.dataframe(summary)
-        
-        # Visualize completion percentage
-        fig = px.bar(summary, 
-                    x="Category", 
-                    y="% Complete",
-                    title="Daily Requirements Completion")
-        fig.update_layout(yaxis_range=[0, 100])
-        st.plotly_chart(fig)
-        
-    else:
-        st.info("No entries found for selected date")
+    # Use the history module's show_history function
+    history.show_history(API_URL)
 
 else:  # Recommendations page
     st.header("AI-Powered Recommendations")

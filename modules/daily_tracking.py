@@ -64,11 +64,15 @@ def reset_all_values(api_url):
 
 def load_history_data(today, api_url):
     """Load history data once for efficiency"""
-    if "history_data" not in st.session_state:
+    if "history_data" not in st.session_state or not st.session_state.history_data:
         history_data = []
         for i in range(7):
             day = today - pd.Timedelta(days=i)
-            entries = load_daily_entries(day.strftime("%Y-%m-%d"), api_url)
+            date_str = day.strftime("%Y-%m-%d")
+            print(f"Loading history for {date_str}")
+            entries = load_daily_entries(date_str, api_url)
+            # Always add a day entry even if there are no entries
+            day_completion = 0
             if entries:
                 day_df = pd.DataFrame(entries)
                 day_progress = day_df.groupby("category")["amount"].sum().reset_index()
@@ -76,11 +80,13 @@ def load_history_data(today, api_url):
                     lambda x: DAILY_REQUIREMENTS.get(x, {"amount": 1.0})["amount"]
                 )
                 day_progress["percentage"] = (day_progress["amount"] / day_progress["required"] * 100).clip(0, 100)
-                overall = calculate_overall_completion(day_progress)
-                history_data.append({
-                    "date": day.strftime("%Y-%m-%d"),
-                    "completion": overall
-                })
+                day_completion = calculate_overall_completion(day_progress)
+            
+            history_data.append({
+                "date": day.strftime("%Y-%m-%d"),
+                "completion": day_completion
+            })
+        
         st.session_state.history_data = history_data
     return st.session_state.history_data
 
