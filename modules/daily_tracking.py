@@ -62,6 +62,28 @@ def reset_all_values(api_url):
     response = requests.post(f"{api_url}/entries/reset")
     return response.status_code == 200
 
+def load_history_data(today, api_url):
+    """Load history data once for efficiency"""
+    if "history_data" not in st.session_state:
+        history_data = []
+        for i in range(7):
+            day = today - pd.Timedelta(days=i)
+            entries = load_daily_entries(day.strftime("%Y-%m-%d"), api_url)
+            if entries:
+                day_df = pd.DataFrame(entries)
+                day_progress = day_df.groupby("category")["amount"].sum().reset_index()
+                day_progress["required"] = day_progress["category"].map(
+                    lambda x: DAILY_REQUIREMENTS.get(x, {"amount": 1.0})["amount"]
+                )
+                day_progress["percentage"] = (day_progress["amount"] / day_progress["required"] * 100).clip(0, 100)
+                overall = calculate_overall_completion(day_progress)
+                history_data.append({
+                    "date": day.strftime("%Y-%m-%d"),
+                    "completion": overall
+                })
+        st.session_state.history_data = history_data
+    return st.session_state.history_data
+
 def show_daily_tracking(api_url):
     st.header("Daily Food Tracking", divider='rainbow')
     
@@ -83,13 +105,17 @@ def show_daily_tracking(api_url):
         </style>
     """, unsafe_allow_html=True)
     
-    # Update data when needed
     today = date.today()
+    
+    # Update data only when needed - not on every slider change
     if (st.session_state.daily_entries is None or 
         st.session_state.last_update is None or 
         (datetime.now() - st.session_state.last_update).seconds > CACHE_TTL):
         st.session_state.daily_entries = load_daily_entries(today.strftime("%Y-%m-%d"), api_url)
         st.session_state.last_update = datetime.now()
+        # Reset history data when entries are updated
+        if "history_data" in st.session_state:
+            del st.session_state.history_data
     
     # Display overall completion metrics
     if st.session_state.daily_entries:
@@ -119,24 +145,9 @@ def show_daily_tracking(api_url):
                 time_remaining = get_hours_until_midnight()
                 st.metric("Time Until Next Reset", time_remaining)
 
-            # Add 7-day history chart
+            # Add 7-day history chart - load data once, not on every slider change
             st.subheader("7-Day History")
-            history_data = []
-            for i in range(7):
-                day = today - pd.Timedelta(days=i)
-                entries = load_daily_entries(day.strftime("%Y-%m-%d"), api_url)
-                if entries:
-                    day_df = pd.DataFrame(entries)
-                    day_progress = day_df.groupby("category")["amount"].sum().reset_index()
-                    day_progress["required"] = day_progress["category"].map(
-                        lambda x: DAILY_REQUIREMENTS.get(x, {"amount": 1.0})["amount"]
-                    )
-                    day_progress["percentage"] = (day_progress["amount"] / day_progress["required"] * 100).clip(0, 100)
-                    overall = calculate_overall_completion(day_progress)
-                    history_data.append({
-                        "date": day.strftime("%Y-%m-%d"),
-                        "completion": overall
-                    })
+            history_data = load_history_data(today, api_url)
             
             history_df = pd.DataFrame(history_data)
             if not history_df.empty:
@@ -179,13 +190,16 @@ def show_daily_tracking(api_url):
         if st.button("Reset All Values", type="secondary"):
             if reset_all_values(api_url):
                 st.success("All values reset to 0")
+                # Clear history data on reset
+                if "history_data" in st.session_state:
+                    del st.session_state.history_data
                 st.rerun()
             else:
                 st.error("Failed to reset values")
         
         st.markdown("---")
         
-        # Show sliders for each category
+        # Show sliders for each category - prevent constant recalculation
         slider_values = {}
         consumed = {entry["category"]: entry["amount"] for entry in st.session_state.daily_entries or []}
         sorted_categories = sort_categories_by_completion(consumed)
@@ -203,12 +217,15 @@ def show_daily_tracking(api_url):
                 status_emoji = "⚠️ " if completion < 100 else "✅ "
                 st.markdown(f"{status_emoji}**{category.title()}** ({unit})<br>{current_value:.1f}/{max_value:.1f}", unsafe_allow_html=True)
             with col_slider:
-                slider_value = st.session_state.get(f"slider_{category}", current_value)
+                # Use session state to remember values between renders
+                if f"slider_{category}" not in st.session_state:
+                    st.session_state[f"slider_{category}"] = current_value
+                    
                 slider_values[category] = st.slider(
                     "##",
                     min_value=0.0,
                     max_value=float(max_value),
-                    value=slider_value,
+                    value=st.session_state[f"slider_{category}"],
                     step=0.5,
                     key=f"slider_{category}",
                     label_visibility="collapsed"
@@ -219,12 +236,15 @@ def show_daily_tracking(api_url):
                 st.success("Saved!")
                 st.session_state.daily_entries = load_daily_entries(date.today().strftime("%Y-%m-%d"), api_url)
                 st.session_state.last_update = datetime.now()
+                # Reset history data on save
+                if "history_data" in st.session_state:
+                    del st.session_state.history_data
                 st.rerun()
             else:
                 st.error("Save failed")
     
     with col2:
-        # Show progress visualization
+        # Show progress visualization - avoid recalculating on every slider change
         if st.session_state.daily_entries:
             df = pd.DataFrame(st.session_state.daily_entries)
             if not df.empty:
