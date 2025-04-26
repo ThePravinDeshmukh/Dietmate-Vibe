@@ -289,6 +289,43 @@ def get_daily_entries(date_str: str, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
+@app.get("/entries/batch/{start_date}/{end_date}")
+def get_batch_entries(start_date: str, end_date: str, db: Session = Depends(get_db)):
+    """Get all diet entries for a date range (inclusive)"""
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        
+        # Ensure start date is before end date
+        if start > end:
+            raise HTTPException(status_code=400, detail="Start date must be before or equal to end date")
+            
+        # Query all entries within the date range
+        entries = db.query(DietEntry).filter(
+            DietEntry.date >= start,
+            DietEntry.date <= end
+        ).all()
+        
+        # Group entries by date
+        result = {}
+        for entry in entries:
+            date_str = entry.date.isoformat()
+            if date_str not in result:
+                result[date_str] = []
+                
+            result[date_str].append({
+                "category": entry.category,
+                "food_item": entry.food_item,
+                "amount": float(entry.amount),
+                "unit": entry.unit,
+                "notes": entry.notes,
+                "date": date_str
+            })
+            
+        return result
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
 @app.get("/recommendations")
 def get_recommendations(db: Session = Depends(get_db)):
     """Get AI-powered recommendations based on recent diet history"""

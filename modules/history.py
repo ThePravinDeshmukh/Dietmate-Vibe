@@ -5,9 +5,15 @@ import requests
 from datetime import date, datetime, timedelta
 import plotly.express as px
 from .utils import normalize_category, get_daily_requirements, calculate_overall_completion
+import functools
+import time
 
 # Import daily requirements
 DAILY_REQUIREMENTS = get_daily_requirements()
+
+# Cache for storing month data with expiration times
+MONTH_DATA_CACHE = {}
+CACHE_EXPIRY = 5 * 60  # 5 minutes in seconds
 
 def load_daily_entries(date_str, api_url):
     """Load entries for a specific date"""
@@ -15,6 +21,13 @@ def load_daily_entries(date_str, api_url):
     if response.status_code == 200:
         return response.json()
     return []
+
+def load_batch_entries(start_date_str, end_date_str, api_url):
+    """Load entries for a date range using the batch API endpoint"""
+    response = requests.get(f"{api_url}/entries/batch/{start_date_str}/{end_date_str}")
+    if response.status_code == 200:
+        return response.json()
+    return {}
 
 def calculate_completion_percentage(entries):
     """Calculate diet completion percentage for a day's entries"""
@@ -43,25 +56,111 @@ def calculate_completion_percentage(entries):
     return 0.0
 
 def get_month_data(year, month, api_url):
-    """Get diet completion data for all days in a month"""
-    month_data = {}
+    """Get diet completion data for all days in a month with efficient batch processing and caching"""
+    # Check if data is in cache and still valid
+    cache_key = f"{year}-{month}"
+    current_time = time.time()
     
-    # Get number of days in the month
-    num_days = calendar.monthrange(year, month)[1]
+    if cache_key in MONTH_DATA_CACHE:
+        cache_entry = MONTH_DATA_CACHE[cache_key]
+        if current_time - cache_entry["timestamp"] < CACHE_EXPIRY:
+            return cache_entry["data"]
     
-    # Request data for each day in the month
-    for day in range(1, num_days + 1):
-        current_date = date(year, month, day)
-        date_str = current_date.strftime("%Y-%m-%d")
+    # Get the first and last day of the month
+    first_day = date(year, month, 1)
+    last_day = date(year, month, calendar.monthrange(year, month)[1])
+    
+    # Get today's date to exclude future dates
+    today = date.today()
+    
+    # Initialize month_data with None values for all days of the month
+    days_in_month = calendar.monthrange(year, month)[1]
+    month_data = {day: None for day in range(1, days_in_month + 1)}
+    
+    # If the entire month is in the future, return empty data
+    if first_day > today:
+        # Cache the result
+        MONTH_DATA_CACHE[cache_key] = {
+            "data": month_data,
+            "timestamp": current_time
+        }
+        return month_data
+    
+    # Adjust last_day if it's in the future
+    if last_day > today:
+        last_day = today
+    
+    # Format dates for API call
+    start_date_str = first_day.strftime("%Y-%m-%d")
+    end_date_str = last_day.strftime("%Y-%m-%d")
+    
+    # Use the load_batch_entries function to get all entries at once
+    with st.spinner(f"Loading data for {calendar.month_name[month]} {year}..."):
+        # Create a progress bar to show loading status
+        progress_bar = st.progress(0)
+        progress_text = st.empty()
         
-        if current_date <= date.today():  # Only get data for past and current days
-            entries = load_daily_entries(date_str, api_url)
-            completion = calculate_completion_percentage(entries)
-        else:
-            completion = None  # Future date
+        # Show initial progress message
+        progress_text.text("Fetching month data...")
+        
+        # Try to fetch batch data with retry logic
+        max_retries = 3
+        retry_delay = 1  # seconds
+        batch_data = {}
+        
+        for attempt in range(max_retries):
+            try:
+                progress_text.text(f"Fetching month data (attempt {attempt+1}/{max_retries})...")
+                batch_data = load_batch_entries(start_date_str, end_date_str, api_url)
+                if batch_data:  # If we got data successfully, break the retry loop
+                    break
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:  # If not the last attempt
+                    progress_text.text(f"Connection error: {str(e)}. Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    progress_text.text(f"Failed to load data after {max_retries} attempts")
+                    st.error(f"Failed to load data: {str(e)}")
+        
+        progress_bar.progress(50)
+        progress_text.text("Processing data...")
+        
+        # Process the batch data and calculate completion percentages for each day
+        total_days = (last_day - first_day).days + 1
+        processed_days = 0
+        
+        for day in range(1, days_in_month + 1):
+            current_date = date(year, month, day)
+            # Skip future dates
+            if current_date > today:
+                continue
+                
+            date_str = current_date.strftime("%Y-%m-%d")
+            entries = batch_data.get(date_str, [])
             
-        month_data[day] = completion
+            if entries:
+                # Calculate completion percentage for this day
+                completion = calculate_completion_percentage(entries)
+                month_data[day] = completion
+            else:
+                # No entries for this day (counts as 0% completion)
+                month_data[day] = 0.0
+            
+            processed_days += 1
+            if total_days > 0:
+                progress_bar.progress(50 + int(50 * processed_days / total_days))
         
+        # Clear the progress indicators
+        progress_bar.empty()
+        progress_text.empty()
+    
+    # Cache the processed data
+    MONTH_DATA_CACHE[cache_key] = {
+        "data": month_data,
+        "timestamp": current_time
+    }
+    
     return month_data
 
 def show_month_calendar(year, month, month_data):
