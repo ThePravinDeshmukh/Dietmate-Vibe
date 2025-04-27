@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, date, time
 import requests
+import time
 
 from .utils import (
     normalize_category,
@@ -245,9 +246,8 @@ def show_daily_tracking(api_url):
                 # Reset history data on save
                 if "history_data" in st.session_state:
                     del st.session_state.history_data
-                st.rerun()
             else:
-                st.error("Save failed")
+                st.error("Failed to save changes")
     
     with col2:
         # Show progress visualization - avoid recalculating on every slider change
