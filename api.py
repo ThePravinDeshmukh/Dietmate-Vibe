@@ -2,9 +2,9 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
 from datetime import date, datetime
-import openai
-from typing import List, Dict
+from typing import List, Dict, Optional
 import os
+import openai
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
@@ -25,19 +25,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize database and processor
+engine = init_db()
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 diet_processor = DietDataProcessor()
 food_categories = diet_processor.process_all_pdfs()
 
-# Initialize database
-engine = init_db()
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 def get_db():
+    """Database dependency to manage session lifecycle"""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+def normalize_category(category: str) -> str:
+    """
+    Normalize category names to match requirements
+    
+    Args:
+        category: Original category name
+        
+    Returns:
+        Normalized category name
+    """
+    # Convert to lowercase and remove 'exchange' suffix
+    normalized = category.lower().replace(' exchange', '')
+    
+    # Map specific cases
+    mapping = {
+        'dried fruits': 'dried fruit',
+        'fresh fruits': 'fresh fruit',
+        'other vegetable': 'other vegetables',
+        'root vegetable': 'root vegetables',
+        'leafy vegetable': 'other vegetables',  # Consider leafy as part of other vegetables
+        'misc free group': 'free group',
+        'juices': 'free group'  # Map juices to free group
+    }
+    return mapping.get(normalized, normalized)
+
+# Pydantic models
+class DietEntryCreate(BaseModel):
+    """Schema for creating a diet entry"""
+    food_item: str
+    category: str
+    amount: float
+    unit: str
+    notes: Optional[str] = None
+
+class BatchDietEntries(BaseModel):
+    """Schema for creating multiple diet entries"""
+    entries: List[DietEntryCreate]
+    date: Optional[str] = None
 
 # Test endpoints
 @app.get("/test/health")
@@ -71,56 +110,7 @@ def database_check(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
 
-def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) -> str:
-    """Get AI-powered diet recommendations"""
-    try:
-        client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        
-        # Construct the prompt
-        prompt = f"""
-        Based on the following daily diet requirements:
-        {requirements}
-        
-        And recent food consumption:
-        {food_history}
-        
-        Please provide personalized recommendations for:
-        1. What food items to consume next
-        2. Any nutritional gaps to address
-        3. Suggestions for balanced meal planning
-        
-        Keep in mind this is for a child with special dietary needs.
-        """
-        
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a specialized pediatric nutritionist."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error getting AI recommendation: {str(e)}"
-
-def normalize_category(category):
-    """Normalize category names to match requirements"""
-    # Convert to lowercase and remove 'exchange' suffix
-    normalized = category.lower().replace(' exchange', '')
-    
-    # Map specific cases
-    mapping = {
-        'dried fruits': 'dried fruit',
-        'fresh fruits': 'fresh fruit',
-        'other vegetable': 'other vegetables',
-        'root vegetable': 'root vegetables',
-        'leafy vegetable': 'other vegetables',  # Consider leafy as part of other vegetables
-        'misc free group': 'free group',
-        'juices': 'free group'  # Map juices to free group
-    }
-    return mapping.get(normalized, normalized)
-
+# Food category endpoints
 @app.get("/categories")
 def get_categories():
     """Get all available food categories"""
@@ -134,19 +124,7 @@ def get_foods_in_category(category: str):
         raise HTTPException(status_code=404, detail=f"Category {category} not found")
     return df.to_dict(orient='records')
 
-# Add Pydantic model for entry
-class DietEntryCreate(BaseModel):
-    food_item: str
-    category: str
-    amount: float
-    unit: str
-    notes: str | None = None
-
-# Add new Pydantic model for batch entries
-class BatchDietEntries(BaseModel):
-    entries: List[DietEntryCreate]
-    date: str | None = None
-
+# Diet entry endpoints
 @app.post("/entries/")
 def add_diet_entry(
     entry: DietEntryCreate,
@@ -189,7 +167,7 @@ def add_diet_entries_batch(
 ):
     """Add multiple diet entries in a single transaction"""
     try:
-        # Use provided date or default to today
+        # Parse provided date or default to today
         entry_date = date.today()
         if batch.date:
             try:
@@ -238,7 +216,7 @@ def reset_entries(
 ):
     """Reset all entries for a specific date to 0"""
     try:
-        # Use provided date or default to today
+        # Parse provided date or default to today
         entry_date = date.today()
         if data and "date" in data:
             try:
@@ -249,13 +227,18 @@ def reset_entries(
         # Delete all entries for the selected date
         db.query(DietEntry).filter(DietEntry.date == entry_date).delete()
         
+        # Define default units for categories
+        default_units = {cat: "exchange" if cat in ["cereal", "dried fruit", "fresh fruit", "legumes", 
+                        "other vegetables", "root vegetables", "free group"] else "grams" 
+                        for cat in food_categories}
+        
         # Create new entries with 0 values for all categories
         for category in food_categories:
             db_entry = DietEntry(
                 food_item=category,
                 category=category,
                 amount=0,
-                unit="exchange" if category in ["cereal", "dried fruit", "fresh fruit", "legumes", "other vegetables", "root vegetables", "free group"] else "grams",
+                unit=default_units.get(category, "exchange"),
                 notes="Reset to 0",
                 date=entry_date
             )
@@ -325,6 +308,49 @@ def get_batch_entries(start_date: str, end_date: str, db: Session = Depends(get_
         return result
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+# AI recommendations endpoint
+def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) -> str:
+    """
+    Get AI-powered diet recommendations
+    
+    Args:
+        food_history: List of recent food entries
+        requirements: List of dietary requirements
+        
+    Returns:
+        String containing AI-generated recommendations
+    """
+    try:
+        client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        
+        # Construct the prompt
+        prompt = f"""
+        Based on the following daily diet requirements:
+        {requirements}
+        
+        And recent food consumption:
+        {food_history}
+        
+        Please provide personalized recommendations for:
+        1. What food items to consume next
+        2. Any nutritional gaps to address
+        3. Suggestions for balanced meal planning
+        
+        Keep in mind this is for a child with special dietary needs.
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a specialized pediatric nutritionist."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error getting AI recommendation: {str(e)}"
 
 @app.get("/recommendations")
 def get_recommendations(db: Session = Depends(get_db)):
