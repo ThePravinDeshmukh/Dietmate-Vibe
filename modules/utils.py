@@ -1,27 +1,6 @@
 from datetime import datetime, date, time
 import pandas as pd
-
-# Define daily requirements
-DAILY_REQUIREMENTS = {
-    "cereal": {"amount": 12.5, "unit": "exchange"},
-    "dried fruit": {"amount": 1, "unit": "exchange"},
-    "fresh fruit": {"amount": 1, "unit": "exchange"},
-    "legumes": {"amount": 3, "unit": "exchange"},
-    "other vegetables": {"amount": 3, "unit": "exchange"},
-    "root vegetables": {"amount": 2, "unit": "exchange"},
-    "free group": {"amount": 3, "unit": "exchange"},
-    "jaggery": {"amount": 20, "unit": "grams"},
-    "soy milk": {"amount": 120, "unit": "ml"},
-    "sugar": {"amount": 10, "unit": "grams"},
-    "oil ghee": {"amount": 30, "unit": "grams"},
-    "pa formula": {"amount": 32, "unit": "grams"},
-    "cal-c formula": {"amount": 24, "unit": "grams"},
-    "isoleucine": {"amount": 4, "unit": "grams"},
-    "valine": {"amount": 4, "unit": "grams"},
-}
-
-# Cache settings
-CACHE_TTL = 300  # 5 minutes
+from .config import DAILY_REQUIREMENTS, CACHE_TTL
 
 def normalize_category(category):
     """Normalize category names for consistent comparison"""

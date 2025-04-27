@@ -18,12 +18,6 @@ if 'daily_entries' not in st.session_state:
     st.session_state.daily_entries = None
 if 'last_update' not in st.session_state:
     st.session_state.last_update = None
-if 'auto_save' not in st.session_state:
-    st.session_state.auto_save = True
-if 'last_auto_save' not in st.session_state:
-    st.session_state.last_auto_save = datetime.now()
-if 'auto_save_interval' not in st.session_state:
-    st.session_state.auto_save_interval = 60  # Auto-save interval in seconds (default: 60 seconds)
 if 'pending_changes' not in st.session_state:
     st.session_state.pending_changes = 0  # Track number of slider changes
 if 'change_threshold' not in st.session_state:
@@ -45,61 +39,8 @@ DAILY_REQUIREMENTS = {
     "pa formula": {"amount": 32, "unit": "grams"},
     "cal-c formula": {"amount": 24, "unit": "grams"},
     "isoleucine": {"amount": 4, "unit": "grams"},
-    "valine": {"amount": 4, "unit": "grams"},
-    "candies": {"amount": 2, "unit": "exchange"}
+    "valine": {"amount": 4, "unit": "grams"}
 }
-
-# Auto-save JavaScript injection
-AUTO_SAVE_SCRIPT = """
-<script>
-// Function to trigger auto-save
-function triggerAutoSave() {
-    if (window.autosaveInterval) {
-        clearInterval(window.autosaveInterval);
-    }
-    
-    window.autosaveInterval = setInterval(() => {
-        const saveButton = document.querySelector('button[kind="primary"]');
-        if (saveButton && saveButton.innerText.includes('Save All Changes')) {
-            // Show auto-save indicator
-            const statusElem = document.getElementById('auto-save-status');
-            if (statusElem) {
-                statusElem.innerText = "Auto-saving...";
-                statusElem.style.opacity = "1";
-            }
-            
-            // Click the save button
-            saveButton.click();
-            
-            // Hide the status message after a delay
-            setTimeout(() => {
-                if (statusElem) {
-                    statusElem.style.opacity = "0";
-                }
-            }, 2000);
-        }
-    }, %d * 1000); // Convert seconds to milliseconds
-}
-
-// Start auto-save when the page loads
-document.addEventListener('DOMContentLoaded', triggerAutoSave);
-</script>
-<style>
-#auto-save-status {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background-color: rgba(0, 128, 0, 0.8);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 4px;
-    z-index: 9999;
-    transition: opacity 0.5s;
-    opacity: 0;
-}
-</style>
-<div id="auto-save-status">Auto-saving...</div>
-"""
 
 # Add CSS for slider colors
 SLIDER_STYLES = """
@@ -113,17 +54,6 @@ SLIDER_STYLES = """
     }
 </style>
 """
-
-def auto_save_enabled():
-    """Check if auto-save is enabled and handle periodic saving"""
-    current_time = datetime.now()
-    
-    # If auto-save is enabled and interval has passed since last save
-    if (st.session_state.auto_save and 
-        (current_time - st.session_state.last_auto_save).total_seconds() >= st.session_state.auto_save_interval):
-        st.session_state.last_auto_save = current_time
-        return True
-    return False
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def load_daily_entries(date_str):
@@ -353,42 +283,11 @@ def get_recommendations():
 # Sidebar for navigation
 page = st.sidebar.selectbox("Select Page", ["Daily Tracking", "View History", "Recommendations"])
 
-# Add auto-save settings in sidebar
-st.sidebar.markdown("---")
-st.sidebar.subheader("Auto-Save Settings")
-st.session_state.auto_save = st.sidebar.toggle("Enable Auto-Save", value=st.session_state.auto_save)
-
-if st.session_state.auto_save:
-    st.sidebar.caption("Auto-save will trigger when:")
-    
-    # Auto-save interval slider
-    st.session_state.auto_save_interval = st.sidebar.slider(
-        "Time interval (seconds)", 
-        min_value=10, 
-        max_value=300, 
-        value=st.session_state.auto_save_interval,
-        step=10
-    )
-    
-    # Change threshold slider
-    st.session_state.change_threshold = st.sidebar.slider(
-        "After number of changes", 
-        min_value=1, 
-        max_value=10, 
-        value=st.session_state.change_threshold
-    )
-    
-    # Show last auto-save time
-    if 'last_auto_save' in st.session_state:
-        formatted_time = st.session_state.last_auto_save.strftime("%H:%M:%S")
-        st.sidebar.caption(f"Last auto-save: {formatted_time}")
-st.sidebar.markdown("---")
 
 if page == "Daily Tracking":
     
     # Add styles
     st.markdown(SLIDER_STYLES, unsafe_allow_html=True)
-    st.markdown(AUTO_SAVE_SCRIPT % st.session_state.auto_save_interval, unsafe_allow_html=True)
     
     # Add date selector at the top
     selected_date = st.date_input("Select Date to Edit", date.today())
@@ -522,11 +421,6 @@ if page == "Daily Tracking":
                 st.rerun()
             else:
                 st.error("Save failed")
-        
-        # Trigger auto-save if enabled
-        if auto_save_enabled() or st.session_state.pending_changes >= st.session_state.change_threshold:
-            if save_entries(slider_values, selected_date_str):
-                st.session_state.pending_changes = 0  # Reset pending changes
     
     with col2:
         if st.session_state.daily_entries:

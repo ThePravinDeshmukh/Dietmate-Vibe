@@ -22,8 +22,7 @@ DAILY_REQUIREMENTS = {
     "pa formula": {"amount": 32, "unit": "grams"},
     "cal-c formula": {"amount": 24, "unit": "grams"},
     "isoleucine": {"amount": 4, "unit": "grams"},
-    "valine": {"amount": 4, "unit": "grams"},
-    "candies": {"amount": 2, "unit": "exchange"}
+    "valine": {"amount": 4, "unit": "grams"}
 }
 
 # Custom CSS styles
@@ -74,30 +73,31 @@ div[data-testid="stVerticalBlock"] {
     padding: 0 !important;
 }
 
-/* Ultra compact slider */
+/* Broader sliders */
 .stSlider {
-    padding: 0.1rem 0 !important;
+    padding: 0.3rem 0 !important;
     margin: 0 !important;
 }
 
 div[data-baseweb="slider"] {
-    margin: 0 !important;
+    margin: 0.25rem 0 !important; 
     padding: 0 !important;
+    width: 100% !important;  /* Make slider use full width */
 }
 
 div[data-baseweb="slider"] [role="slider"] {
-    height: 0.9rem !important;
-    width: 0.9rem !important;
-    margin-top: -0.45rem !important;
+    height: 1.4rem !important;  /* Bigger thumb */
+    width: 1.4rem !important;   /* Bigger thumb */
+    margin-top: -0.7rem !important;
 }
 
 div[data-baseweb="slider"] [data-testid="stThumbValue"] {
-    font-size: 0.65rem !important;
-    padding: 0.1rem 0.2rem !important;
+    font-size: 0.8rem !important;
+    padding: 0.2rem 0.3rem !important;
 }
 
 div[data-baseweb="slider"] [role="progressbar"] {
-    height: 0.2rem !important;
+    height: 0.4rem !important;  /* Thicker track */
 }
 
 /* Ultra compact charts */
