@@ -44,3 +44,5 @@ databases:
     databaseName: diet_tracker
     plan: free
     ipAllowList: [] # Allows all IPs
+
+

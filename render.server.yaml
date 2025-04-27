@@ -1,0 +1,47 @@
+# Exported from Render on 2025-04-27T11:12:33Z
+services:
+- type: web
+  name: diet-tracker-api
+  runtime: python
+  repo: https://github.com/ThePravinDeshmukh/Dietmate-Vibe
+  plan: free
+  envVars:
+  - key: DATABASE_URL
+    sync: false
+  - key: CORS_ORIGINS
+    sync: false
+  - key: OPENAI_API_KEY
+    sync: false
+  region: oregon
+  buildCommand: pip install -r requirements.txt
+  startCommand: gunicorn api:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
+    --bind 0.0.0.0:$PORT
+- type: web
+  name: diet-tracker-frontend
+  runtime: python
+  repo: https://github.com/ThePravinDeshmukh/Dietmate-Vibe
+  plan: free
+  envVars:
+  - key: OPENAI_API_KEY
+    sync: false
+  - key: API_URL
+    sync: false
+  region: oregon
+  buildCommand: pip install -r requirements.txt
+  startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+
+version: "1"
+
+
+# Exported from Render on 2025-04-27T11:13:09Z
+databases:
+- name: diet-tracker-db
+  databaseName: diet_tracker_db_ajge
+  user: diet_tracker_db_ajge_user
+  plan: free
+  region: oregon
+  ipAllowList:
+  - source: 0.0.0.0/0
+    description: everywhere
+  postgresMajorVersion: "16"
+version: "1"

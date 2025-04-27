@@ -271,6 +271,31 @@ def get_hours_until_midnight():
     minutes = (hours % 1) * 60
     return f"{int(hours)}h {int(minutes)}m"
 
+def copy_from_yesterday(target_date_str):
+    """Copy diet entries from the previous day to the target date"""
+    # Calculate yesterday's date based on the target date
+    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+    yesterday = target_date - pd.Timedelta(days=1)
+    yesterday_str = yesterday.strftime("%Y-%m-%d")
+    
+    # Load yesterday's entries
+    yesterday_entries = load_daily_entries(yesterday_str)
+    
+    if not yesterday_entries:
+        return False, "No entries found for yesterday"
+    
+    # Convert entries to the format expected by save_entries
+    entries_dict = {entry["category"]: entry["amount"] for entry in yesterday_entries}
+    
+    # Save yesterday's entries to today
+    if save_entries(entries_dict, target_date_str):
+        # Update sliders in session state
+        for category, amount in entries_dict.items():
+            st.session_state[f"slider_{category}"] = float(amount)
+        return True, f"Copied entries from {yesterday_str} to {target_date_str}"
+    else:
+        return False, "Failed to copy entries from yesterday"
+
 def get_recommendations():
     """Get AI recommendations from the API"""
     response = requests.get(f"{API_URL}/recommendations")
@@ -368,13 +393,24 @@ if page == "Daily Tracking":
         slider_values = {}
         consumed = get_consumed_amounts()
         
-        # Add Reset button at the top
-        if st.button("Reset All Values", type="secondary"):
-            if reset_all_values(selected_date_str):
-                st.success(f"All values reset to 0 for {selected_date_str}")
-                st.rerun()
-            else:
-                st.error("Failed to reset values")
+        # Add Reset and Copy from Yesterday buttons at the top
+        col_reset, col_copy = st.columns(2)
+        with col_reset:
+            if st.button("Reset All Values", type="secondary", use_container_width=True):
+                if reset_all_values(selected_date_str):
+                    st.success(f"All values reset to 0 for {selected_date_str}")
+                    st.rerun()
+                else:
+                    st.error("Failed to reset values")
+        with col_copy:
+            if st.button("Copy from Yesterday", type="primary", use_container_width=True):
+                success, message = copy_from_yesterday(selected_date_str)
+                if success:
+                    st.success(message)
+                    update_progress_data(selected_date_str)
+                    st.rerun()
+                else:
+                    st.error(message)
         
         st.markdown("---")
         
