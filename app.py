@@ -22,6 +22,8 @@ if 'pending_changes' not in st.session_state:
     st.session_state.pending_changes = 0  # Track number of slider changes
 if 'change_threshold' not in st.session_state:
     st.session_state.change_threshold = 3  # Auto-save after this many changes
+if 'reset_sliders' not in st.session_state:
+    st.session_state.reset_sliders = False
 
 # Daily requirements (max values for sliders)
 DAILY_REQUIREMENTS = {
@@ -81,16 +83,23 @@ def load_daily_entries(date_str):
 
 def save_entries(entries, date_str=None):
     """Save multiple entries in a single request"""
-    entries_list = [
-        {
+    entries_list = []
+    
+    for category, amount in entries.items():
+        # Handle categories not in DAILY_REQUIREMENTS
+        if category not in DAILY_REQUIREMENTS:
+            print(f"Warning: Unknown category '{category}' - using default unit 'exchange'")
+            unit = "exchange"
+        else:
+            unit = DAILY_REQUIREMENTS[category]["unit"]
+            
+        entries_list.append({
             "food_item": category,
             "category": category,
             "amount": float(amount),
-            "unit": DAILY_REQUIREMENTS[category]["unit"],
+            "unit": unit,
             "notes": "Updated via slider"
-        }
-        for category, amount in entries.items()
-    ]
+        })
     
     # Include the date in the request if provided
     request_data = {"entries": entries_list}
@@ -134,6 +143,13 @@ def reset_all_values(selected_date_str=None):
             if f"slider_{category}" in st.session_state:
                 st.session_state[f"slider_{category}"] = 0.0
     return success
+
+def reset_sliders_locally():
+    """Reset all slider values to 0 locally without making API calls"""
+    # Instead of directly setting slider values, we'll set a flag
+    # that will be used to reset sliders on the next rerun
+    st.session_state.reset_sliders = True
+    return True
 
 def normalize_category(category):
     """Normalize category names to match DAILY_REQUIREMENTS keys"""
@@ -397,11 +413,9 @@ if page == "Daily Tracking":
         col_reset, col_copy = st.columns(2)
         with col_reset:
             if st.button("Reset All Values", type="secondary", use_container_width=True):
-                if reset_all_values(selected_date_str):
-                    st.success(f"All values reset to 0 for {selected_date_str}")
-                    st.rerun()
-                else:
-                    st.error("Failed to reset values")
+                reset_sliders_locally()  # Only reset sliders locally
+                st.success("All slider values reset to 0")
+                st.rerun()
         with col_copy:
             if st.button("Copy from Yesterday", type="primary", use_container_width=True):
                 success, message = copy_from_yesterday(selected_date_str)
@@ -416,6 +430,16 @@ if page == "Daily Tracking":
         
         # Sort categories by completion status
         sorted_categories = sort_categories_by_completion(consumed)
+        
+        # Check if we need to reset sliders
+        if st.session_state.reset_sliders:
+            # Set default slider values to 0 before rendering them
+            for category in DAILY_REQUIREMENTS.keys():
+                # Only set the "default" value, which will be used when rendering
+                if f"slider_{category}" not in st.session_state:
+                    st.session_state[f"slider_{category}"] = 0.0
+            # Reset the flag
+            st.session_state.reset_sliders = False
         
         # Create more compact sliders for each sorted category
         for cat_info in sorted_categories:
