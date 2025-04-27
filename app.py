@@ -151,6 +151,21 @@ def reset_sliders_locally():
     st.session_state.reset_sliders = True
     return True
 
+def toggle_slider_value(category, max_value):
+    """Toggle a slider between its maximum value and zero"""
+    current = st.session_state.get(f"slider_{category}", 0.0)
+    
+    # Instead of directly modifying the slider, store the intention in session state
+    if current >= max_value * 0.95:  # Using 95% threshold for better UX
+        # Need to reset to zero
+        st.session_state[f"toggle_{category}_to"] = 0.0
+    else:
+        # Need to set to max
+        st.session_state[f"toggle_{category}_to"] = max_value
+    
+    # Set a flag to indicate a toggle was clicked
+    st.session_state.slider_toggled = True
+
 def normalize_category(category):
     """Normalize category names to match DAILY_REQUIREMENTS keys"""
     # Convert to lowercase and remove 'exchange' suffix
@@ -330,6 +345,24 @@ if page == "Daily Tracking":
     # Add styles
     st.markdown(SLIDER_STYLES, unsafe_allow_html=True)
     
+    # Initialize slider_toggled flag if not exists
+    if 'slider_toggled' not in st.session_state:
+        st.session_state.slider_toggled = False
+    
+    # Handle any pending toggle requests
+    if st.session_state.slider_toggled:
+        # Find all toggle requests and apply them
+        for category in DAILY_REQUIREMENTS.keys():
+            toggle_key = f"toggle_{category}_to"
+            if toggle_key in st.session_state:
+                # Apply the toggle value to the slider and ensure it's a float
+                st.session_state[f"slider_{category}"] = float(st.session_state[toggle_key])
+                # Clear the toggle request
+                del st.session_state[toggle_key]
+        
+        # Reset the toggle flag
+        st.session_state.slider_toggled = False
+    
     # Add date selector at the top
     selected_date = st.date_input("Select Date to Edit", date.today())
     selected_date_str = selected_date.strftime("%Y-%m-%d")
@@ -451,14 +484,14 @@ if page == "Daily Tracking":
             completion = cat_info['completion']
             
             # More compact display with completion indicator
-            col_label, col_slider = st.columns([1, 2])
+            col_label, col_slider, col_toggle = st.columns([1, 1.7, 0.3])
             with col_label:
                 status_emoji = "⚠️ " if completion < 100 else "✅ "
                 st.markdown(f"{status_emoji}**{category.title()}** ({unit})<br>{current_value:.1f}/{max_value:.1f}", unsafe_allow_html=True)
+            
             with col_slider:
                 # Use session state value if it exists, otherwise use current_value
-                slider_value = st.session_state.get(f"slider_{category}", current_value)
-                
+                slider_value = float(st.session_state.get(f"slider_{category}", current_value))
                 slider_values[category] = st.slider(
                     "##",
                     min_value=0.0,
@@ -472,6 +505,14 @@ if page == "Daily Tracking":
                 # Track changes for smarter auto-save
                 if slider_value != current_value:
                     st.session_state.pending_changes += 1
+            
+            with col_toggle:
+                # Show toggle button - ✓ if complete, ○ if not
+                is_complete = slider_value >= max_value * 0.95
+                toggle_label = "✓" if is_complete else "○" 
+                if st.button(toggle_label, key=f"toggle_{category}"):
+                    toggle_slider_value(category, max_value)
+                    st.rerun()
         
         if st.button("Save All Changes", use_container_width=True):
             if save_entries(slider_values, selected_date_str):
