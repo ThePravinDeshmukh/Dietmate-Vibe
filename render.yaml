@@ -9,16 +9,14 @@ services:
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: DATABASE_URL
-        fromDatabase:
-          name: diet-tracker-db
-          property: connectionString
+        value: sqlite:////opt/render/project/src/diet_tracker.db
       - key: OPENAI_API_KEY
         sync: false
       - key: CORS_ORIGINS
         value: ${diet-tracker-frontend.RENDER_EXTERNAL_URL} # Frontend URL for CORS
     disk:
-      name: diet-pdfs
-      mountPath: /opt/render/project/src/dietpdfs
+      name: diet-pdfs-and-db
+      mountPath: /opt/render/project/src
       sizeGB: 1
     autoDeploy: true
 
@@ -38,11 +36,5 @@ services:
     autoDeploy: true
     dependencies:
       - name: diet-tracker-api
-
-databases:
-  - name: diet-tracker-db
-    databaseName: diet_tracker
-    plan: free
-    ipAllowList: [] # Allows all IPs
 
 
