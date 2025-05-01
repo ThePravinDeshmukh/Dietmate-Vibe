@@ -151,21 +151,6 @@ def reset_sliders_locally():
     st.session_state.reset_sliders = True
     return True
 
-def toggle_slider_value(category, max_value):
-    """Toggle a slider between its maximum value and zero"""
-    current = st.session_state.get(f"slider_{category}", 0.0)
-    
-    # Instead of directly modifying the slider, store the intention in session state
-    if current >= max_value * 0.95:  # Using 95% threshold for better UX
-        # Need to reset to zero
-        st.session_state[f"toggle_{category}_to"] = 0.0
-    else:
-        # Need to set to max
-        st.session_state[f"toggle_{category}_to"] = max_value
-    
-    # Set a flag to indicate a toggle was clicked
-    st.session_state.slider_toggled = True
-
 def normalize_category(category):
     """Normalize category names to match DAILY_REQUIREMENTS keys"""
     # Convert to lowercase and remove 'exchange' suffix
@@ -303,7 +288,7 @@ def get_hours_until_midnight():
     return f"{int(hours)}h {int(minutes)}m"
 
 def copy_from_yesterday(target_date_str):
-    """Copy diet entries from the previous day to the target date"""
+    """Copy diet entries from the previous day to the target date (locally only, without saving to database)"""
     # Calculate yesterday's date based on the target date
     target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
     yesterday = target_date - pd.Timedelta(days=1)
@@ -315,17 +300,13 @@ def copy_from_yesterday(target_date_str):
     if not yesterday_entries:
         return False, "No entries found for yesterday"
     
-    # Convert entries to the format expected by save_entries
-    entries_dict = {entry["category"]: entry["amount"] for entry in yesterday_entries}
+    # Update sliders in session state directly without saving to database
+    for entry in yesterday_entries:
+        category = entry["category"]
+        amount = entry["amount"]
+        st.session_state[f"slider_{category}"] = float(amount)
     
-    # Save yesterday's entries to today
-    if save_entries(entries_dict, target_date_str):
-        # Update sliders in session state
-        for category, amount in entries_dict.items():
-            st.session_state[f"slider_{category}"] = float(amount)
-        return True, f"Copied entries from {yesterday_str} to {target_date_str}"
-    else:
-        return False, "Failed to copy entries from yesterday"
+    return True, f"Copied entries from {yesterday_str} for editing (not saved yet)"
 
 def get_recommendations():
     """Get AI recommendations from the API"""
@@ -344,24 +325,6 @@ if page == "Daily Tracking":
     
     # Add styles
     st.markdown(SLIDER_STYLES, unsafe_allow_html=True)
-    
-    # Initialize slider_toggled flag if not exists
-    if 'slider_toggled' not in st.session_state:
-        st.session_state.slider_toggled = False
-    
-    # Handle any pending toggle requests
-    if st.session_state.slider_toggled:
-        # Find all toggle requests and apply them
-        for category in DAILY_REQUIREMENTS.keys():
-            toggle_key = f"toggle_{category}_to"
-            if toggle_key in st.session_state:
-                # Apply the toggle value to the slider and ensure it's a float
-                st.session_state[f"slider_{category}"] = float(st.session_state[toggle_key])
-                # Clear the toggle request
-                del st.session_state[toggle_key]
-        
-        # Reset the toggle flag
-        st.session_state.slider_toggled = False
     
     # Add date selector at the top
     selected_date = st.date_input("Select Date to Edit", date.today())
@@ -442,8 +405,8 @@ if page == "Daily Tracking":
         slider_values = {}
         consumed = get_consumed_amounts()
         
-        # Add Reset and Copy from Yesterday buttons at the top
-        col_reset, col_copy = st.columns(2)
+        # Add Reset, Copy from Yesterday, and Save All Changes buttons at the top
+        col_reset, col_copy, col_save = st.columns(3)
         with col_reset:
             if st.button("Reset All Values", type="secondary", use_container_width=True):
                 reset_sliders_locally()  # Only reset sliders locally
@@ -458,21 +421,20 @@ if page == "Daily Tracking":
                     st.rerun()
                 else:
                     st.error(message)
+        with col_save:
+            if st.button("Save All Changes", type="primary", use_container_width=True):
+                if save_entries(slider_values, selected_date_str):
+                    st.success("Saved!")
+                    update_progress_data(selected_date_str)  # Update cache after save
+                    st.session_state.pending_changes = 0  # Reset pending changes
+                    st.rerun()
+                else:
+                    st.error("Save failed")
         
         st.markdown("---")
         
         # Sort categories by completion status
         sorted_categories = sort_categories_by_completion(consumed)
-        
-        # Check if we need to reset sliders
-        if st.session_state.reset_sliders:
-            # Set default slider values to 0 before rendering them
-            for category in DAILY_REQUIREMENTS.keys():
-                # Only set the "default" value, which will be used when rendering
-                if f"slider_{category}" not in st.session_state:
-                    st.session_state[f"slider_{category}"] = 0.0
-            # Reset the flag
-            st.session_state.reset_sliders = False
         
         # Create more compact sliders for each sorted category
         for cat_info in sorted_categories:
@@ -484,14 +446,14 @@ if page == "Daily Tracking":
             completion = cat_info['completion']
             
             # More compact display with completion indicator
-            col_label, col_slider, col_toggle = st.columns([1, 1.7, 0.3])
+            col_label, col_slider = st.columns([1, 2])
             with col_label:
                 status_emoji = "⚠️ " if completion < 100 else "✅ "
                 st.markdown(f"{status_emoji}**{category.title()}** ({unit})<br>{current_value:.1f}/{max_value:.1f}", unsafe_allow_html=True)
-            
             with col_slider:
                 # Use session state value if it exists, otherwise use current_value
-                slider_value = float(st.session_state.get(f"slider_{category}", current_value))
+                slider_value = st.session_state.get(f"slider_{category}", current_value)
+                
                 slider_values[category] = st.slider(
                     "##",
                     min_value=0.0,
@@ -505,23 +467,6 @@ if page == "Daily Tracking":
                 # Track changes for smarter auto-save
                 if slider_value != current_value:
                     st.session_state.pending_changes += 1
-            
-            with col_toggle:
-                # Show toggle button - ✓ if complete, ○ if not
-                is_complete = slider_value >= max_value * 0.95
-                toggle_label = "✓" if is_complete else "○" 
-                if st.button(toggle_label, key=f"toggle_{category}"):
-                    toggle_slider_value(category, max_value)
-                    st.rerun()
-        
-        if st.button("Save All Changes", use_container_width=True):
-            if save_entries(slider_values, selected_date_str):
-                st.success("Saved!")
-                update_progress_data(selected_date_str)  # Update cache after save
-                st.session_state.pending_changes = 0  # Reset pending changes
-                st.rerun()
-            else:
-                st.error("Save failed")
     
     with col2:
         if st.session_state.daily_entries:
