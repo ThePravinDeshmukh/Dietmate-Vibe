@@ -1,50 +1,38 @@
-from sqlalchemy.orm import sessionmaker
-from models import DietRequirement, init_db
+from models import init_db, DIET_REQUIREMENTS_COLLECTION
 
 # Initial diet requirements
 DIET_REQUIREMENTS = [
-    ("cereal", 12.5, "exchange"),
-    ("dried fruit", 1, "exchange"),
-    ("fresh fruit", 1, "exchange"),
-    ("legumes", 3, "exchange"),
-    ("other vegetables", 3, "exchange"),
-    ("root vegetables", 2, "exchange"),
-    ("free group", 3, "exchange"),
-    ("jaggery", 20, "grams"),
-    ("soy milk", 120, "ml"),
-    ("sugar", 10, "grams"),
-    ("oil ghee", 30, "grams"),
-    ("pa formula", 32, "grams"),
-    ("cal-c formula", 24, "grams"),
-    ("isoleucine", 4, "grams"),
-    ("valine", 4, "grams"),
+    {"category": "cereal", "amount": 12.5, "unit": "exchange"},
+    {"category": "dried fruit", "amount": 1, "unit": "exchange"},
+    {"category": "fresh fruit", "amount": 1, "unit": "exchange"},
+    {"category": "legumes", "amount": 3, "unit": "exchange"},
+    {"category": "other vegetables", "amount": 3, "unit": "exchange"},
+    {"category": "root vegetables", "amount": 2, "unit": "exchange"},
+    {"category": "free group", "amount": 3, "unit": "exchange"},
+    {"category": "jaggery", "amount": 20, "unit": "grams"},
+    {"category": "soy milk", "amount": 120, "unit": "ml"},
+    {"category": "sugar", "amount": 10, "unit": "grams"},
+    {"category": "oil ghee", "amount": 30, "unit": "grams"},
+    {"category": "pa formula", "amount": 32, "unit": "grams"},
+    {"category": "cal-c formula", "amount": 24, "unit": "grams"},
+    {"category": "isoleucine", "amount": 4, "unit": "grams"},
+    {"category": "valine", "amount": 4, "unit": "grams"},
 ]
 
 def init_requirements():
-    engine = init_db()
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
+    """Initialize diet requirements in MongoDB"""
+    db = init_db()
+    
     try:
         # Clear existing requirements
-        session.query(DietRequirement).delete()
+        db[DIET_REQUIREMENTS_COLLECTION].delete_many({})
         
         # Add new requirements
-        for category, amount, unit in DIET_REQUIREMENTS:
-            requirement = DietRequirement(
-                category=category,
-                amount=amount,
-                unit=unit
-            )
-            session.add(requirement)
+        db[DIET_REQUIREMENTS_COLLECTION].insert_many(DIET_REQUIREMENTS)
         
-        session.commit()
         print("Diet requirements initialized successfully!")
     except Exception as e:
         print(f"Error initializing diet requirements: {e}")
-        session.rollback()
-    finally:
-        session.close()
-
+        
 if __name__ == "__main__":
     init_requirements()

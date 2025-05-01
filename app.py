@@ -405,6 +405,11 @@ if page == "Daily Tracking":
         slider_values = {}
         consumed = get_consumed_amounts()
         
+        # Prepare slider values for all categories first - this ensures they're populated before save
+        for category in DAILY_REQUIREMENTS.keys():
+            current_value = consumed.get(category, 0)
+            slider_values[category] = st.session_state.get(f"slider_{category}", current_value)
+        
         # Add Reset, Copy from Yesterday, and Save All Changes buttons at the top
         col_reset, col_copy, col_save = st.columns(3)
         with col_reset:
@@ -423,6 +428,10 @@ if page == "Daily Tracking":
                     st.error(message)
         with col_save:
             if st.button("Save All Changes", type="primary", use_container_width=True):
+                # Log what we're sending to help debugging
+                print(f"Saving entries for date: {selected_date_str}")
+                print(f"Slider values being saved: {slider_values}")
+                
                 if save_entries(slider_values, selected_date_str):
                     st.success("Saved!")
                     update_progress_data(selected_date_str)  # Update cache after save
@@ -454,6 +463,7 @@ if page == "Daily Tracking":
                 # Use session state value if it exists, otherwise use current_value
                 slider_value = st.session_state.get(f"slider_{category}", current_value)
                 
+                # Update slider value in the UI and store in the dictionary
                 slider_values[category] = st.slider(
                     "##",
                     min_value=0.0,

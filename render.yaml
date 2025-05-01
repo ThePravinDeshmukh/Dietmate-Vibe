@@ -8,16 +8,20 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.0
-      - key: DATABASE_URL
-        value: sqlite:////opt/render/project/src/diet_tracker.db
+      - key: MONGODB_URI
+        sync: false # You'll need to set this manually in the Render dashboard
+      - key: MONGODB_DATABASE
+        value: diet_tracker
       - key: OPENAI_API_KEY
         sync: false
       - key: CORS_ORIGINS
         value: ${diet-tracker-frontend.RENDER_EXTERNAL_URL} # Frontend URL for CORS
-    disk:
-      name: diet-pdfs-and-db
-      mountPath: /opt/render/project/src
-      sizeGB: 1
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_BACKUP_REPO
+        value: "diet-tracker-backups" # Create this private repo on GitHub
+      - key: GITHUB_OWNER
+        value: "ThePravinDeshmukh" # Your GitHub username
     autoDeploy: true
 
   - type: web

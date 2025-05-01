@@ -1,19 +1,22 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session, sessionmaker
 from datetime import date, datetime
 from typing import List, Dict, Optional
 import os
 import openai
 from dotenv import load_dotenv
 from pydantic import BaseModel
+import time
+import atexit
 
-from models import DietRequirement, DietEntry, init_db
+from models import init_db, DIET_REQUIREMENTS_COLLECTION, DIET_ENTRIES_COLLECTION
+from models import get_diet_entries_by_date, get_diet_requirements
 from diet_data_processor import DietDataProcessor
 
 # Load environment variables
 load_dotenv()
 
+# Initialize database backup manager
 app = FastAPI(title="Diet Tracking API")
 
 # Configure CORS
@@ -26,18 +29,14 @@ app.add_middleware(
 )
 
 # Initialize database and processor
-engine = init_db()
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+db = init_db()
 diet_processor = DietDataProcessor()
 food_categories = diet_processor.process_all_pdfs()
 
-def get_db():
-    """Database dependency to manage session lifecycle"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Helper dependency to get database
+async def get_db():
+    """Database dependency"""
+    return db
 
 def normalize_category(category: str) -> str:
     """
@@ -97,14 +96,15 @@ def version_check():
     }
 
 @app.get("/test/database")
-def database_check(db: Session = Depends(get_db)):
+async def database_check(db = Depends(get_db)):
     """Test endpoint to verify database connectivity"""
     try:
         # Try to make a simple query
-        db.query(DietRequirement).first()
+        requirements = list(db[DIET_REQUIREMENTS_COLLECTION].find().limit(1))
         return {
             "status": "connected",
-            "database_url": os.getenv('DATABASE_URL', 'sqlite:///diet_tracker.db'),
+            "database_url": os.getenv('MONGODB_URI', 'mongodb://localhost:27017'),
+            "database": os.getenv('MONGODB_DATABASE', 'diet_tracker'),
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
@@ -126,44 +126,57 @@ def get_foods_in_category(category: str):
 
 # Diet entry endpoints
 @app.post("/entries/")
-def add_diet_entry(
+async def add_diet_entry(
     entry: DietEntryCreate,
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     """Add a new diet entry"""
-    # Normalize the category
-    normalized_category = normalize_category(entry.category)
-    
-    # Check if entry already exists for this category today
-    today = date.today()
-    existing_entry = db.query(DietEntry).filter(
-        DietEntry.date == today,
-        DietEntry.category == normalized_category
-    ).first()
-    
-    if existing_entry:
-        # Update existing entry
-        existing_entry.amount = entry.amount  # Replace instead of add
-        existing_entry.notes = entry.notes
-    else:
-        # Create new entry
-        db_entry = DietEntry(
-            food_item=entry.food_item,
-            category=normalized_category,
-            amount=entry.amount,
-            unit=entry.unit,
-            notes=entry.notes,
-            date=today
-        )
-        db.add(db_entry)
-    
-    db.commit()
-    return {"status": "success"}
+    try:
+        # Normalize the category
+        normalized_category = normalize_category(entry.category)
+        
+        # Check if entry already exists for this category today
+        today = date.today()
+        today_start = datetime.combine(today, datetime.min.time())
+        today_end = datetime.combine(today, datetime.max.time())
+        
+        existing_entry = db[DIET_ENTRIES_COLLECTION].find_one({
+            "date": {"$gte": today_start, "$lte": today_end},
+            "category": normalized_category
+        })
+        
+        if existing_entry:
+            # Update existing entry
+            db[DIET_ENTRIES_COLLECTION].update_one(
+                {"_id": existing_entry["_id"]},
+                {
+                    "$set": {
+                        "amount": entry.amount,
+                        "notes": entry.notes,
+                        "timestamp": datetime.utcnow()
+                    }
+                }
+            )
+        else:
+            # Create new entry
+            db[DIET_ENTRIES_COLLECTION].insert_one({
+                "food_item": entry.food_item,
+                "category": normalized_category,
+                "amount": entry.amount,
+                "unit": entry.unit,
+                "notes": entry.notes,
+                "date": datetime.combine(today, datetime.min.time()),
+                "timestamp": datetime.utcnow()
+            })
+        
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/entries/batch")
-def add_diet_entries_batch(
+async def add_diet_entries_batch(
     batch: BatchDietEntries,
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     """Add multiple diet entries in a single transaction"""
     try:
@@ -175,44 +188,56 @@ def add_diet_entries_batch(
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
         
+        entry_datetime = datetime.combine(entry_date, datetime.min.time())
+        
         # Get all existing entries for the selected date
+        start_of_day = datetime.combine(entry_date, datetime.min.time())
+        end_of_day = datetime.combine(entry_date, datetime.max.time())
+        
         existing_entries = {
-            entry.category: entry 
-            for entry in db.query(DietEntry).filter(DietEntry.date == entry_date).all()
+            entry["category"]: entry 
+            for entry in db[DIET_ENTRIES_COLLECTION].find({
+                "date": {"$gte": start_of_day, "$lte": end_of_day}
+            })
         }
         
-        # Update or create entries in a single transaction
+        # Update or create entries
         for entry in batch.entries:
             # Normalize the category
             normalized_category = normalize_category(entry.category)
             
             if normalized_category in existing_entries:
                 # Update existing entry
-                existing = existing_entries[normalized_category]
-                existing.amount = entry.amount
-                existing.notes = entry.notes
+                db[DIET_ENTRIES_COLLECTION].update_one(
+                    {"_id": existing_entries[normalized_category]["_id"]},
+                    {
+                        "$set": {
+                            "amount": entry.amount,
+                            "notes": entry.notes,
+                            "timestamp": datetime.utcnow()
+                        }
+                    }
+                )
             else:
                 # Create new entry
-                db_entry = DietEntry(
-                    food_item=entry.food_item,
-                    category=normalized_category,
-                    amount=entry.amount,
-                    unit=entry.unit,
-                    notes=entry.notes,
-                    date=entry_date
-                )
-                db.add(db_entry)
+                db[DIET_ENTRIES_COLLECTION].insert_one({
+                    "food_item": entry.food_item,
+                    "category": normalized_category,
+                    "amount": entry.amount,
+                    "unit": entry.unit,
+                    "notes": entry.notes,
+                    "date": entry_datetime,
+                    "timestamp": datetime.utcnow()
+                })
         
-        db.commit()
         return {"status": "success"}
     except Exception as e:
-        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/entries/reset")
-def reset_entries(
+async def reset_entries(
     data: dict = None, 
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     """Reset all entries for a specific date to 0"""
     try:
@@ -225,7 +250,12 @@ def reset_entries(
                 raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
         
         # Delete all entries for the selected date
-        db.query(DietEntry).filter(DietEntry.date == entry_date).delete()
+        start_of_day = datetime.combine(entry_date, datetime.min.time())
+        end_of_day = datetime.combine(entry_date, datetime.max.time())
+        
+        db[DIET_ENTRIES_COLLECTION].delete_many({
+            "date": {"$gte": start_of_day, "$lte": end_of_day}
+        })
         
         # Define default units for categories
         default_units = {cat: "exchange" if cat in ["cereal", "dried fruit", "fresh fruit", "legumes", 
@@ -233,39 +263,42 @@ def reset_entries(
                         for cat in food_categories}
         
         # Create new entries with 0 values for all categories
-        for category in food_categories:
-            db_entry = DietEntry(
-                food_item=category,
-                category=category,
-                amount=0,
-                unit=default_units.get(category, "exchange"),
-                notes="Reset to 0",
-                date=entry_date
-            )
-            db.add(db_entry)
+        entry_datetime = datetime.combine(entry_date, datetime.min.time())
+        entries_to_insert = []
         
-        db.commit()
+        for category in food_categories:
+            entries_to_insert.append({
+                "food_item": category,
+                "category": category,
+                "amount": 0,
+                "unit": default_units.get(category, "exchange"),
+                "notes": "Reset to 0",
+                "date": entry_datetime,
+                "timestamp": datetime.utcnow()
+            })
+        
+        # Insert all at once for better performance
+        if entries_to_insert:
+            db[DIET_ENTRIES_COLLECTION].insert_many(entries_to_insert)
+        
         return {"status": "success"}
     except Exception as e:
-        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/entries/{date_str}")
-def get_daily_entries(date_str: str, db: Session = Depends(get_db)):
+async def get_daily_entries(date_str: str):
     """Get all diet entries for a specific date"""
     try:
-        query_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        entries = db.query(DietEntry).filter(DietEntry.date == query_date).all()
+        entries = get_diet_entries_by_date(date_str)
         
-        # Properly serialize the model objects
         return [
             {
-                "category": entry.category,
-                "food_item": entry.food_item,
-                "amount": float(entry.amount),  # Ensure amount is float
-                "unit": entry.unit,
-                "notes": entry.notes,
-                "date": entry.date.isoformat()
+                "category": entry.get("category", ""),
+                "food_item": entry.get("food_item", ""),
+                "amount": float(entry.get("amount", 0)),
+                "unit": entry.get("unit", ""),
+                "notes": entry.get("notes", ""),
+                "date": entry.get("date").date().isoformat()
             }
             for entry in entries
         ]
@@ -273,7 +306,7 @@ def get_daily_entries(date_str: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
 @app.get("/entries/batch/{start_date}/{end_date}")
-def get_batch_entries(start_date: str, end_date: str, db: Session = Depends(get_db)):
+async def get_batch_entries(start_date: str, end_date: str, db = Depends(get_db)):
     """Get all diet entries for a date range (inclusive)"""
     try:
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -284,33 +317,37 @@ def get_batch_entries(start_date: str, end_date: str, db: Session = Depends(get_
             raise HTTPException(status_code=400, detail="Start date must be before or equal to end date")
             
         # Query all entries within the date range
-        entries = db.query(DietEntry).filter(
-            DietEntry.date >= start,
-            DietEntry.date <= end
-        ).all()
+        start_datetime = datetime.combine(start, datetime.min.time())
+        end_datetime = datetime.combine(end, datetime.max.time())
+        
+        entries = list(db[DIET_ENTRIES_COLLECTION].find({
+            "date": {"$gte": start_datetime, "$lte": end_datetime}
+        }))
         
         # Group entries by date
         result = {}
         for entry in entries:
-            date_str = entry.date.isoformat()
+            date_str = entry.get("date").date().isoformat()
             if date_str not in result:
                 result[date_str] = []
                 
-            result[date_str].append({
-                "category": entry.category,
-                "food_item": entry.food_item,
-                "amount": float(entry.amount),
-                "unit": entry.unit,
-                "notes": entry.notes,
+            # Convert ObjectId to string for serialization
+            entry_dict = {
+                "category": entry.get("category", ""),
+                "food_item": entry.get("food_item", ""),
+                "amount": float(entry.get("amount", 0)),
+                "unit": entry.get("unit", ""),
+                "notes": entry.get("notes", ""),
                 "date": date_str
-            })
+            }
+            result[date_str].append(entry_dict)
             
         return result
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
 # AI recommendations endpoint
-def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) -> str:
+async def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) -> str:
     """
     Get AI-powered diet recommendations
     
@@ -353,18 +390,26 @@ def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) ->
         return f"Error getting AI recommendation: {str(e)}"
 
 @app.get("/recommendations")
-def get_recommendations(db: Session = Depends(get_db)):
+async def get_recommendations(db = Depends(get_db)):
     """Get AI-powered recommendations based on recent diet history"""
-    # Get today's entries
-    today = date.today()
-    entries = db.query(DietEntry).filter(DietEntry.date == today).all()
-    
-    # Get requirements
-    requirements = db.query(DietRequirement).all()
-    
-    # Get AI recommendations
-    recommendations = get_ai_recommendation(entries, requirements)
-    return {"recommendations": recommendations}
+    try:
+        # Get today's entries
+        today = date.today()
+        today_start = datetime.combine(today, datetime.min.time())
+        today_end = datetime.combine(today, datetime.max.time())
+        
+        entries = list(db[DIET_ENTRIES_COLLECTION].find({
+            "date": {"$gte": today_start, "$lte": today_end}
+        }))
+        
+        # Get requirements
+        requirements = list(db[DIET_REQUIREMENTS_COLLECTION].find())
+        
+        # Get AI recommendations
+        recommendations = await get_ai_recommendation(entries, requirements)
+        return {"recommendations": recommendations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
