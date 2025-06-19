@@ -8,7 +8,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def load_daily_entries(date=None):
+def load_diet_entries(date=None):
     """Load entries for a specific date or today"""
     if date is None:
         date = datetime.now().strftime("%Y-%m-%d")

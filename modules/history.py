@@ -15,7 +15,7 @@ DAILY_REQUIREMENTS = get_daily_requirements()
 MONTH_DATA_CACHE = {}
 CACHE_EXPIRY = 5 * 60  # 5 minutes in seconds
 
-def load_daily_entries(date_str, api_url):
+def load_diet_entries(date_str, api_url):
     """Load entries for a specific date"""
     response = requests.get(f"{api_url}/entries/{date_str}")
     if response.status_code == 200:
@@ -316,7 +316,7 @@ def show_history(api_url):
         for i in range(7):
             current_date = start_date + timedelta(days=i)
             date_str = current_date.strftime("%Y-%m-%d")
-            entries = load_daily_entries(date_str, api_url)
+            entries = load_diet_entries(date_str, api_url)
             completion = calculate_completion_percentage(entries)
             weekly_data[current_date.strftime("%a %d")] = completion
         

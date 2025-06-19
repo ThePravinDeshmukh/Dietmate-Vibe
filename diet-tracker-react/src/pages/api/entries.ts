@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { db } = await connectToDatabase();
       const today = new Date().toISOString().split('T')[0];
-      const entries = await db.collection('daily_entries')
+      const entries = await db.collection('diet_entries')
         .find({ date: today })
         .toArray();
       
@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { category, amount } = req.body;
       const today = new Date().toISOString().split('T')[0];
 
-      await db.collection('daily_entries').updateOne(
+      await db.collection('diet_entries').updateOne(
         { date: today, category },
         { 
           $set: { 

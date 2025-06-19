@@ -36,7 +36,7 @@ def render_header():
         if st.button("Reset All Values"):
             from .data_service import reset_all_values
             if reset_all_values():
-                st.session_state.daily_entries = None
+                st.session_state.diet_entries = None
                 st.session_state.last_update = None
                 st.experimental_rerun()
 
@@ -117,7 +117,7 @@ def initialize_session_state():
     """Initialize session state variables"""
     if 'initialized' not in st.session_state:
         st.session_state.initialized = False
-        st.session_state.daily_entries = None
+        st.session_state.diet_entries = None
         st.session_state.last_update = None
         st.session_state.save_status = ""
         st.session_state.last_saved_values = {}

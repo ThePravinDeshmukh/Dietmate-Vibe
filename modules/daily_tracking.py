@@ -16,7 +16,7 @@ from .utils import (
     CACHE_TTL
 )
 
-def load_daily_entries(date_str, api_url, cache_ttl=300):
+def load_diet_entries(date_str, api_url, cache_ttl=300):
     """Load daily entries with caching"""
     print(f"Loading entries for {date_str}")
     response = requests.get(f"{api_url}/entries/{date_str}")
@@ -71,7 +71,7 @@ def load_history_data(today, api_url):
             day = today - pd.Timedelta(days=i)
             date_str = day.strftime("%Y-%m-%d")
             print(f"Loading history for {date_str}")
-            entries = load_daily_entries(date_str, api_url)
+            entries = load_diet_entries(date_str, api_url)
             # Always add a day entry even if there are no entries
             day_completion = 0
             if entries:
@@ -115,18 +115,18 @@ def show_daily_tracking(api_url):
     today = date.today()
     
     # Update data only when needed - not on every slider change
-    if (st.session_state.daily_entries is None or 
+    if (st.session_state.diet_entries is None or 
         st.session_state.last_update is None or 
         (datetime.now() - st.session_state.last_update).seconds > CACHE_TTL):
-        st.session_state.daily_entries = load_daily_entries(today.strftime("%Y-%m-%d"), api_url)
+        st.session_state.diet_entries = load_diet_entries(today.strftime("%Y-%m-%d"), api_url)
         st.session_state.last_update = datetime.now()
         # Reset history data when entries are updated
         if "history_data" in st.session_state:
             del st.session_state.history_data
     
     # Display overall completion metrics
-    if st.session_state.daily_entries:
-        df = pd.DataFrame(st.session_state.daily_entries)
+    if st.session_state.diet_entries:
+        df = pd.DataFrame(st.session_state.diet_entries)
         if not df.empty:
             # Calculate progress
             progress_df = df.groupby("category")["amount"].sum().reset_index()
@@ -208,7 +208,7 @@ def show_daily_tracking(api_url):
         
         # Show sliders for each category - prevent constant recalculation
         slider_values = {}
-        consumed = {entry["category"]: entry["amount"] for entry in st.session_state.daily_entries or []}
+        consumed = {entry["category"]: entry["amount"] for entry in st.session_state.diet_entries or []}
         sorted_categories = sort_categories_by_completion(consumed)
         
         for cat_info in sorted_categories:
@@ -241,7 +241,7 @@ def show_daily_tracking(api_url):
         if st.button("Save All Changes", use_container_width=True):
             if save_entries(slider_values, api_url):
                 st.success("Saved!")
-                st.session_state.daily_entries = load_daily_entries(date.today().strftime("%Y-%m-%d"), api_url)
+                st.session_state.diet_entries = load_diet_entries(date.today().strftime("%Y-%m-%d"), api_url)
                 st.session_state.last_update = datetime.now()
                 # Reset history data on save
                 if "history_data" in st.session_state:
@@ -251,8 +251,8 @@ def show_daily_tracking(api_url):
     
     with col2:
         # Show progress visualization - avoid recalculating on every slider change
-        if st.session_state.daily_entries:
-            df = pd.DataFrame(st.session_state.daily_entries)
+        if st.session_state.diet_entries:
+            df = pd.DataFrame(st.session_state.diet_entries)
             if not df.empty:
                 progress_df = df.groupby("category")["amount"].sum().reset_index()
                 progress_df["required"] = progress_df["category"].map(

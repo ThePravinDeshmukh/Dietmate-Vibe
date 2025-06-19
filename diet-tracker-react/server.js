@@ -50,7 +50,7 @@ app.get('/api/entries', async (req, res) => {
     const dateParam = req.query.date || new Date().toISOString().split('T')[0];
     console.log('Querying for date (IST):', dateParam);
     const { startIST, endIST } = getISTDayRange(dateParam);
-    const entries = await db.collection('daily_entries').find({
+    const entries = await db.collection('diet_entries').find({
       date: { $gte: startIST, $lte: endIST }
     }).toArray();
     console.log(`Found ${entries.length} entries for date (IST): ${dateParam}`);
@@ -72,7 +72,7 @@ app.post('/api/entries', async (req, res) => {
     const istDate = new Date(dateObj.getTime() + istOffset);
     const entryDate = new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate(), 0, 0, 0, 0);
 
-    await db.collection('daily_entries').updateOne(
+    await db.collection('diet_entries').updateOne(
       { date: entryDate, category },
       {
         $set: {
