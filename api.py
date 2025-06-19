@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime
 from typing import List, Dict, Optional
 import os
-import openai
+import json
+import google.generativeai as genai
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import time
@@ -349,7 +350,7 @@ async def get_batch_entries(start_date: str, end_date: str, db = Depends(get_db)
 # AI recommendations endpoint
 async def get_ai_recommendation(food_history: List[Dict], requirements: List[Dict]) -> str:
     """
-    Get AI-powered diet recommendations
+    Get AI-powered diet recommendations using Google's Gemini API
     
     Args:
         food_history: List of recent food entries
@@ -359,33 +360,103 @@ async def get_ai_recommendation(food_history: List[Dict], requirements: List[Dic
         String containing AI-generated recommendations
     """
     try:
-        client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        # Configure the Gemini API
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            return "Error: Gemini API key not found in environment variables"
         
-        # Construct the prompt
-        prompt = f"""
-        Based on the following daily diet requirements:
-        {requirements}
+        genai.configure(api_key=api_key)
         
-        And recent food consumption:
-        {food_history}
+        # Initialize the model
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        Please provide personalized recommendations for:
-        1. What food items to consume next
-        2. Any nutritional gaps to address
-        3. Suggestions for balanced meal planning
+        # Calculate remaining exchanges
+        consumed = {entry["category"]: entry["amount"] for entry in food_history}
+        remaining = {}
+        for req in requirements:
+            category = req["category"]
+            required = req["amount"]
+            consumed_amount = consumed.get(category, 0)
+            if consumed_amount < required:
+                remaining[category] = {
+                    "amount": required - consumed_amount,
+                    "unit": req["unit"]
+                }
         
-        Keep in mind this is for a child with special dietary needs.
-        """
+        # Get available food items from PDFs for remaining categories
+        available_foods = {}
+        for category in remaining.keys():
+            foods = diet_processor.get_food_choices(category)
+            if not foods.empty:
+                available_foods[category] = foods.to_dict(orient='records')
+          # Get current time for context
+        current_hour = datetime.now().hour
+        meal_time = "breakfast" if current_hour < 11 else "lunch" if current_hour < 16 else "dinner" if current_hour < 22 else "snack"
         
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a specialized pediatric nutritionist."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+        # Format remaining items more clearly
+        remaining_details = "\n".join([
+            f"- {category}: {details['amount']} {details['unit']} remaining"
+            for category, details in remaining.items()
+        ])
         
-        return response.choices[0].message.content
+        # Format available foods more clearly
+        available_combinations = {}
+        for category, foods in available_foods.items():
+            if foods:
+                available_combinations[category] = [
+                    f"{food.get('food_item', 'Unknown')} ({food.get('portion_size', 'portion size not specified')})"
+                    for food in foods[:5]  # Limit to 5 examples per category
+                ]
+        
+        # Construct the prompt with more specific guidance
+        prompt = f"""As a specialized pediatric nutritionist, provide detailed recommendations for {meal_time} based on:
+
+CURRENT SITUATION:
+- Meal time: {meal_time}
+- Remaining daily requirements:
+{remaining_details}
+
+AVAILABLE FOOD OPTIONS PER CATEGORY:
+{json.dumps(available_combinations, indent=2)}
+
+Please provide a structured response with:
+
+1. IMMEDIATE RECOMMENDATIONS:
+   - Suggest specific food combinations from the available options that work well for {meal_time}
+   - Show exact exchange values and portion sizes
+   - Focus on meeting the categories with highest remaining requirements first
+
+2. RECIPE IDEAS (2-3 kid-friendly combinations):
+   - Use only the available ingredients listed above
+   - Combine items from different food categories when possible
+   - Specify exact portions and exchange values
+   - Include simple preparation instructions
+
+3. PLANNING FOR REMAINING DAY:
+   - Suggest how to distribute the remaining exchanges across future meals
+   - Highlight any nutritional gaps that need attention
+
+Requirements:
+- Be very specific with food items, using only those listed
+- Include exact exchange values for each suggestion
+- Keep portions child-appropriate
+- Make combinations appealing and practical for children
+- Consider the time of day ({meal_time}) when making suggestions
+
+Remember this is for a child with special dietary needs and suggestions should be practical to prepare."""        # Generate response
+        response = model.generate_content(prompt)
+        if not response:
+            return "Error: No response received from Gemini API"
+        
+        # Return both prompt and response
+        full_response = f"""
+=== PROMPT SENT TO AI ===
+{prompt}
+
+=== AI RESPONSE ===
+{response.text}
+"""
+        return full_response
     except Exception as e:
         return f"Error getting AI recommendation: {str(e)}"
 
