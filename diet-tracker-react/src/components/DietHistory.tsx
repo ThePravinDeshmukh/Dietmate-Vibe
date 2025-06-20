@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, CircularProgress, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Box, Typography, CircularProgress, MenuItem, Select, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
+import { DAILY_REQUIREMENTS } from './App';
 
 const API_BASE_URL = '/api';
 
@@ -35,16 +36,18 @@ export function DietHistory() {
   const [month, setMonth] = useState(today.getMonth()); // 0-indexed
   const [data, setData] = useState<{ [date: string]: number }>({});
   const [loading, setLoading] = useState(false);
+  const [missedOpen, setMissedOpen] = useState(false);
+  const [missedList, setMissedList] = useState<string[]>([]);
+  const [missedDate, setMissedDate] = useState<string>('');
 
   useEffect(() => {
     async function fetchMonthData() {
       setLoading(true);
       const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
-      const resp = await fetch(`${API_BASE_URL}/history?start=${start}&end=${end}`);
+      const resp = await fetch(`/api/history?start=${start}&end=${end}`);
       if (resp.ok) {
         const arr = await resp.json();
-        // arr: [{date: 'YYYY-MM-DD', overallCompletion: 87}, ...]
         const map: { [date: string]: number } = {};
         arr.forEach((d: any) => { map[d.date] = d.overallCompletion; });
         setData(map);
@@ -54,6 +57,23 @@ export function DietHistory() {
     fetchMonthData();
   }, [year, month]);
 
+  async function handleDayClick(d: number) {
+    if (!d) return;
+    const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const resp = await fetch(`/api/entries?date=${dateKey}`);
+    if (resp.ok) {
+      const entries = await resp.json();
+      const missed = DAILY_REQUIREMENTS.filter(req => {
+        const entry = entries.find((e: any) => e.category === req.category);
+        return !entry || entry.amount < req.amount * 0.5;
+      }).map(req => `${req.category} (${req.amount} ${req.unit})`);
+      setMissedList(missed);
+      setMissedDate(dateKey);
+      setMissedOpen(true);
+    }
+  }
+
+  // Calculate weeks for the calendar grid
   const days = getDaysInMonth(year, month);
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
   const weeks: Array<Array<number | null>> = [];
@@ -124,7 +144,9 @@ export function DietHistory() {
               return (
                 <Box
                   key={i + '-' + j}
+                  onClick={() => handleDayClick(d!)}
                   sx={{
+                    cursor: d ? 'pointer' : 'default',
                     border: isToday ? '2px solid #1976d2' : '1px solid #ccc',
                     height: 56,
                     width: '100%',
@@ -181,6 +203,21 @@ export function DietHistory() {
             }))}
           </Box>
         )}
+      <Dialog open={missedOpen} onClose={() => setMissedOpen(false)}>
+        <DialogTitle>Missed Diets for {missedDate}</DialogTitle>
+        <DialogContent>
+          {missedList.length === 0 ? (
+            <Typography>All targets met!</Typography>
+          ) : (
+            <ul>
+              {missedList.map((item, idx) => <li key={idx}>{item}</li>)}
+            </ul>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMissedOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
