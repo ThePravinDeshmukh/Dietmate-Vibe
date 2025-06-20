@@ -1,44 +1,18 @@
 services:
   - type: web
-    name: diet-tracker-api
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /docs # FastAPI's OpenAPI documentation path
+    name: iem-vibe
+    env: node
+    plan: free
+    buildCommand: cd diet-tracker-react && npm install && npm run build
+    startCommand: cd diet-tracker-react && npm run server
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.13.0
+      - key: NODE_VERSION
+        value: 20
       - key: MONGODB_URI
-        sync: false # You'll need to set this manually in the Render dashboard
+        sync: false
       - key: MONGODB_DATABASE
-        value: diet_tracker
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: CORS_ORIGINS
-        value: ${diet-tracker-frontend.RENDER_EXTERNAL_URL} # Frontend URL for CORS
-      - key: GITHUB_TOKEN
-        sync: false
-      - key: GITHUB_BACKUP_REPO
-        value: "diet-tracker-backups" # Create this private repo on GitHub
-      - key: GITHUB_OWNER
-        value: "ThePravinDeshmukh" # Your GitHub username
-    autoDeploy: true
-
-  - type: web
-    name: diet-tracker-frontend
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
-    healthCheckPath: /_stcore/health
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.13.0
-      - key: API_URL
-        value: ${diet-tracker-api.RENDER_EXTERNAL_URL} # API URL for frontend
-      - key: OPENAI_API_KEY
         sync: false
     autoDeploy: true
-    dependencies:
-      - name: diet-tracker-api
+    rootDir: .
 
 

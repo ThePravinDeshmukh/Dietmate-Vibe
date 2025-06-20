@@ -1,4 +1,4 @@
-import { Document } from 'mongodb';
+import type { Document } from 'mongodb';
 
 export interface NutrientEntry {
   category: string;

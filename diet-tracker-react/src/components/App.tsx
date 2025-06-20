@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, Stack as MuiStack } from '@mui/material';
+import { useEffect, useState } from 'react';import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, Stack as MuiStack } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { NutrientEntry, DailyProgress } from '../types';
@@ -7,7 +6,7 @@ import { NutrientSlider } from './NutrientSlider';
 import { MetricsDisplay } from './MetricsDisplay';
 import { ProgressChart } from './ProgressChart';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = '/api';
 
 export function App() {
   const [nutrients, setNutrients] = useState<NutrientEntry[]>([]);
@@ -31,8 +30,7 @@ export function App() {
       const entries = await response.json();
       if (entries.length > 0) {
         const nutrientEntries = DAILY_REQUIREMENTS.map(req => {
-          const dbEntry = entries.find((entry) => entry.category === req.category);
-          return {
+            const dbEntry = entries.find((entry: any) => entry.category === req.category);          return {
             category: req.category,
             amount: dbEntry ? dbEntry.amount : 0,
             unit: req.unit,
@@ -220,7 +218,7 @@ export function App() {
 }
 
 // Helper to format date as YYYY-MM-DD in IST
-function formatDateIST(dateObj) {
+function formatDateIST(dateObj: Date) {
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(dateObj.getTime() + istOffset);
   const year = istDate.getFullYear();

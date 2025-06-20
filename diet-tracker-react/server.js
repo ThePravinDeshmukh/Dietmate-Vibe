@@ -4,6 +4,10 @@ import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+
 dotenv.config();
 
 const app = express();
@@ -143,8 +147,20 @@ app.get('/api/entries/all', async (req, res) => {
   }
 });
 
+// Serve static files from the dist directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// SPA fallback (must be last route)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
 connectToMongoDB().then(() => {
   app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });
 });
+
+
