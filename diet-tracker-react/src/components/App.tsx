@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, LinearProgress, Chip } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -6,6 +7,7 @@ import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
 import { ProgressChart } from './ProgressChart';
 import Tooltip from '@mui/material/Tooltip';
+import { DietHistory } from './DietHistory';
 
 const API_BASE_URL = '/api';
 
@@ -234,122 +236,131 @@ export function App() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        IEM Vibe
-      </Typography>
-
-      {/* --- Top bar: DatePicker and action buttons in a row --- */}
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="flex-start"
-        justifyContent="flex-start"
-        flexWrap="wrap"
-        sx={{
-          mb: 3,
-          position: 'sticky',
-          top: 0,
-          zIndex: 1100,
-          bgcolor: 'background.paper',
-          py: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-        }}
-      >
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-          <DatePicker
-            label="Select Date"
-            value={selectedDate}
-            onChange={(date) => date && setSelectedDate(date)}
-            slotProps={{ textField: { size: 'small', sx: { width: 140, mr: 1, mb: { xs: 1, sm: 0 } } } }}
-            disableFuture
-          />
-        </LocalizationProvider>
-        <Tooltip title="Reset All Values">
-          <Button variant="outlined" color="secondary" onClick={handleResetAll} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Reset</Button>
-        </Tooltip>
-        <Tooltip title="Copy from Yesterday">
-          <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Copy</Button>
-        </Tooltip>
-        <Tooltip title="Save All Changes">
-          <Button variant="contained" color="primary" onClick={handleSaveAll} sx={{ minWidth: 64, mb: { xs: 1, sm: 0 } }}>Save</Button>
-        </Tooltip>
-      </Stack>
-
-      {/* --- New: Summary Section --- */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography variant="subtitle1">Overall Completion</Typography>
-            <LinearProgress variant="determinate" value={dailyProgress?.overallCompletion || 0} sx={{ height: 10, borderRadius: 5, mb: 1 }} />
-            <Typography variant="body2">{Math.round(dailyProgress?.overallCompletion || 0)}%</Typography>
-          </Box>
-          <Box>
-            <Typography variant="subtitle1">Target for Current Time</Typography>
-            <Stack direction="row" spacing={1}>
-              <Chip
-                color="primary"
-                label={`Expected: ${Math.round(getCurrentTimeTargetPct() * 100)}% of daily diet`}
-              />
-            </Stack>
-          </Box>
-          <Box>
-            <Typography variant="subtitle1">Time Until Next Reset</Typography>
-            <Chip color="primary" label={getTimeUntilReset()} />
-          </Box>
-        </Stack>
-      </Paper>
-
-      {/* --- New: Smart Suggestions --- */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle1" gutterBottom>Smart Suggestions</Typography>
-        <ul style={{ margin: 0, paddingLeft: 20 }}>
-          {getSmartSuggestions(nutrients).map((s, i) => <li key={i}>{s}</li>)}
-        </ul>
-      </Paper>
-
-      {/* --- Existing controls and sliders --- */}
-      {loading ? (
-        <Typography>Loading...</Typography>
-      ) : (
-        <Box sx={{ flexGrow: 1 }}>
-          {/* Removed DatePicker and buttons from here, now in top bar */}
-          <Stack spacing={3}>
-            {/* Remove grid of completed items, keep sliders and chart */}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <Paper sx={{ p: 2, flex: 2 }}>
-                {nutrients.map((nutrient) => (
-                  <Box key={nutrient.category} sx={{ mb: 2 }}>
-                    <NutrientSlider
-                      category={nutrient.category}
-                      amount={nutrient.amount}
-                      maxAmount={nutrient.required}
-                      unit={nutrient.unit}
-                      onChange={(value) => handleNutrientChange(nutrient.category, value)}
-                    />
-                  </Box>
-                ))}
-              </Paper>
-
-              <Paper sx={{ p: 2, flex: 1 }}>
-                <ProgressChart nutrients={nutrients} />
-              </Paper>
-            </Stack>
-          </Stack>
+    <BrowserRouter>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          IEM Vibe
+        </Typography>
+        <Box sx={{ mb: 2 }}>
+          <Button component={Link} to="/" variant="text" sx={{ mr: 1 }}>Tracker</Button>
+          <Button component={Link} to="/history" variant="text">History</Button>
         </Box>
-      )}
+        <Routes>
+          <Route path="/" element={
+            <>
+              {/* --- Top bar: DatePicker and action buttons in a row --- */}
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="flex-start"
+                justifyContent="flex-start"
+                flexWrap="wrap"
+                sx={{
+                  mb: 3,
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1100,
+                  bgcolor: 'background.paper',
+                  py: 2,
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                }}
+              >
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    label="Select Date"
+                    value={selectedDate}
+                    onChange={(date) => date && setSelectedDate(date)}
+                    slotProps={{ textField: { size: 'small', sx: { width: 140, mr: 1, mb: { xs: 1, sm: 0 } } } }}
+                    disableFuture
+                  />
+                </LocalizationProvider>
+                <Tooltip title="Reset All Values">
+                  <Button variant="outlined" color="secondary" onClick={handleResetAll} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Reset</Button>
+                </Tooltip>
+                <Tooltip title="Copy from Yesterday">
+                  <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Copy</Button>
+                </Tooltip>
+                <Tooltip title="Save All Changes">
+                  <Button variant="contained" color="primary" onClick={handleSaveAll} sx={{ minWidth: 64, mb: { xs: 1, sm: 0 } }}>Save</Button>
+                </Tooltip>
+              </Stack>
+              {/* --- New: Summary Section --- */}
+              <Paper sx={{ p: 2, mb: 2 }}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="subtitle1">Overall Completion</Typography>
+                    <LinearProgress variant="determinate" value={dailyProgress?.overallCompletion || 0} sx={{ height: 10, borderRadius: 5, mb: 1 }} />
+                    <Typography variant="body2">{Math.round(dailyProgress?.overallCompletion || 0)}%</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle1">Target for Current Time</Typography>
+                    <Stack direction="row" spacing={1}>
+                      <Chip
+                        color="primary"
+                        label={`Expected: ${Math.round(getCurrentTimeTargetPct() * 100)}% of daily diet`}
+                      />
+                    </Stack>
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle1">Time Until Next Reset</Typography>
+                    <Chip color="primary" label={getTimeUntilReset()} />
+                  </Box>
+                </Stack>
+              </Paper>
 
-      <Snackbar 
-        open={!!error} 
-        autoHideDuration={6000} 
-        onClose={() => setError(null)}
-      >
-        <Alert severity="error" onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      </Snackbar>
-    </Container>
+              {/* --- New: Smart Suggestions --- */}
+              <Paper sx={{ p: 2, mb: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>Smart Suggestions</Typography>
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {getSmartSuggestions(nutrients).map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </Paper>
+
+              {/* --- Existing controls and sliders --- */}
+              {loading ? (
+                <Typography>Loading...</Typography>
+              ) : (
+                <Box sx={{ flexGrow: 1 }}>
+                  <Stack spacing={3}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+                      <Paper sx={{ p: 2, flex: 2 }}>
+                        {nutrients.map((nutrient) => (
+                          <Box key={nutrient.category} sx={{ mb: 2 }}>
+                            <NutrientSlider
+                              category={nutrient.category}
+                              amount={nutrient.amount}
+                              maxAmount={nutrient.required}
+                              unit={nutrient.unit}
+                              onChange={(value) => handleNutrientChange(nutrient.category, value)}
+                            />
+                          </Box>
+                        ))}
+                      </Paper>
+
+                      <Paper sx={{ p: 2, flex: 1 }}>
+                        <ProgressChart nutrients={nutrients} />
+                      </Paper>
+                    </Stack>
+                  </Stack>
+                </Box>
+              )}
+
+              <Snackbar 
+                open={!!error} 
+                autoHideDuration={6000} 
+                onClose={() => setError(null)}
+              >
+                <Alert severity="error" onClose={() => setError(null)}>
+                  {error}
+                </Alert>
+              </Snackbar>
+            </>
+          } />
+          <Route path="/history" element={<DietHistory />} />
+        </Routes>
+      </Container>
+    </BrowserRouter>
   );
 }
 

@@ -1,0 +1,127 @@
+import { useEffect, useState } from 'react';
+import { Box, Paper, Typography, CircularProgress, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+
+const API_BASE_URL = '/api';
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+export function DietHistory() {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth()); // 0-indexed
+  const [data, setData] = useState<{ [date: string]: number }>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchMonthData() {
+      setLoading(true);
+      const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
+      const resp = await fetch(`${API_BASE_URL}/history?start=${start}&end=${end}`);
+      if (resp.ok) {
+        const arr = await resp.json();
+        // arr: [{date: 'YYYY-MM-DD', overallCompletion: 87}, ...]
+        const map: { [date: string]: number } = {};
+        arr.forEach((d: any) => { map[d.date] = d.overallCompletion; });
+        setData(map);
+      }
+      setLoading(false);
+    }
+    fetchMonthData();
+  }, [year, month]);
+
+  const days = getDaysInMonth(year, month);
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const weeks: Array<Array<number | null>> = [];
+  let week: Array<number | null> = Array(firstDay).fill(null);
+  for (let d = 1; d <= days; d++) {
+    week.push(d);
+    if (week.length === 7) {
+      weeks.push(week);
+      week = [];
+    }
+  }
+  if (week.length) weeks.push([...week, ...Array(7 - week.length).fill(null)]);
+
+  return (
+    <Box sx={{ width: '100%', mx: 'auto', mt: 4 }}>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, justifyContent: 'left' }}>
+            <FormControl size="small">
+              <InputLabel>Month</InputLabel>
+              <Select value={month} label="Month" onChange={e => setMonth(Number(e.target.value))}>
+                {[...Array(12)].map((_, i) => (
+                  <MenuItem key={i} value={i}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small">
+              <InputLabel>Year</InputLabel>
+              <Select value={year} label="Year" onChange={e => setYear(Number(e.target.value))}>
+                {[...Array(5)].map((_, i) => {
+                  const y = today.getFullYear() - 2 + i;
+                  return <MenuItem key={y} value={y}>{y}</MenuItem>;
+                })}
+              </Select>
+            </FormControl>
+          </Box>
+        </LocalizationProvider>
+        {loading ? <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} /> : (
+          <Box sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            gap: 0.5,
+            borderRadius: 2,
+            overflowX: 'auto',
+            boxSizing: 'border-box',
+            background: 'none',
+            border: 'none',
+            mx: 'auto',
+            width: '100%',
+            minWidth: 350, // Ensures grid scrolls on small screens
+            maxWidth: '100vw',
+          }}>
+            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => (
+              <Box key={day} sx={{ textAlign: 'center', fontWeight: 'bold', py: 1 }}>
+                <Typography variant="caption" fontSize={20}>{day}</Typography>
+              </Box>
+            ))}
+            {weeks.map((week, i) => week.map((d, j) => {
+              const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+              const percent = data[dateKey] ?? 0;
+              return (
+                <Box
+                  key={i + '-' + j}
+                  sx={{
+                    border: '1px solid #ccc',
+                    height: 56,
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: d ? '#fff' : 'transparent',
+                    p: 1,
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {d ? (
+                    <>
+                      <Typography variant="body1" color="text.primary">{d}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {`${Math.round(percent)}%`}
+                      </Typography>
+                    </>
+                  ) : null}
+                </Box>
+              );
+            }))}
+          </Box>
+        )}
+    </Box>
+  );
+}

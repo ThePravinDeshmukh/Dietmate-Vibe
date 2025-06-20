@@ -129,15 +129,66 @@ app.post('/api/entries/batch', async (req, res) => {
   }
 });
 
-// Get history data
+// Get history data: overall completion percent for each day in a date range
 app.get('/api/history', async (req, res) => {
   try {
-    const history = await db.collection('diet_entries')
-      .find({})
-      .sort({ date: -1 })
-      .limit(7)
-      .toArray();
-    res.json(history);
+    const { start, end } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Missing start or end date' });
+    }
+    // Parse dates as IST
+    const [startY, startM, startD] = start.split('-').map(Number);
+    const [endY, endM, endD] = end.split('-').map(Number);
+    const startIST = new Date(Date.UTC(startY, startM - 1, startD, 0, 0, 0));
+    const endIST = new Date(Date.UTC(endY, endM - 1, endD, 23, 59, 59, 999));
+    const startUTC = new Date(startIST.getTime() - (5.5 * 60 * 60 * 1000));
+    const endUTC = new Date(endIST.getTime() - (5.5 * 60 * 60 * 1000));
+
+    // Get requirements for all categories
+    const requirementsArr = await db.collection('diet_requirements').find({}).toArray();
+    const reqMap = {};
+    let totalRequired = 0;
+    requirementsArr.forEach(r => {
+      reqMap[r.category] = Number(r.amount) || 0;
+      totalRequired += Number(r.amount) || 0;
+    });
+    if (totalRequired === 0) totalRequired = 1;
+
+    // Query all entries in range
+    const entries = await db.collection('diet_entries').find({
+      date: { $gte: startUTC, $lte: endUTC }
+    }).toArray();
+
+    // Group by date (IST)
+    const byDate = {};
+    entries.forEach(e => {
+      // Convert UTC date to IST date string
+      const utc = new Date(e.date);
+      const ist = new Date(utc.getTime() + (5.5 * 60 * 60 * 1000));
+      const dstr = ist.toISOString().slice(0, 10);
+      if (!byDate[dstr]) byDate[dstr] = [];
+      byDate[dstr].push(e);
+    });
+
+    // For each day in range, calculate percent
+    const results = [];
+    let cur = new Date(startIST);
+    while (cur <= endIST) {
+      // Get IST date string
+      const dstr = cur.toISOString().slice(0, 10);
+      const entriesForDay = byDate[dstr] || [];
+      let total = 0;
+      entriesForDay.forEach(e => {
+        const cat = e.category;
+        const amt = Number(e.amount) || 0;
+        const req = reqMap[cat] || 0;
+        total += Math.min(amt, req);
+      });
+      const percent = Math.round((total / totalRequired) * 100);
+      results.push({ date: dstr, overallCompletion: percent });
+      cur.setDate(cur.getDate() + 1);
+    }
+    res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
