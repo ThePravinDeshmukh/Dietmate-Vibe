@@ -239,7 +239,21 @@ export function App() {
       </Typography>
 
       {/* --- Top bar: DatePicker and action buttons in a row --- */}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ mb: 3 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        alignItems="center"
+        sx={{
+          mb: 3,
+          position: 'sticky',
+          top: 0,
+          zIndex: 1100,
+          bgcolor: 'background.paper',
+          py: 2,
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <DatePicker
             label="Select Date"
