@@ -10,7 +10,7 @@ interface NutrientSliderProps {
 }
 
 const SliderContainer = styled(Box)({
-  padding: '0.5rem 0',
+  padding: '0rem 0', // Reduced vertical padding
 });
 
 export function NutrientSlider({
@@ -25,7 +25,7 @@ export function NutrientSlider({
 
   return (
     <SliderContainer>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="body1" fontWeight="bold">
           {statusEmoji} {category}
         </Typography>
@@ -40,7 +40,8 @@ export function NutrientSlider({
         step={0.5}
         onChange={(_, value) => onChange(value as number)}
         sx={{
-          mt: 1,
+          mt: 0, // Less margin above slider
+          height: 3,
           '& .MuiSlider-track': {
             backgroundColor: completion >= 100 ? '#28a745' : '#1976d2',
           },
