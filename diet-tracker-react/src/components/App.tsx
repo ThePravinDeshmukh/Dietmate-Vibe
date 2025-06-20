@@ -238,6 +238,17 @@ export function App() {
         IEM Vibe
       </Typography>
 
+      {/* --- Move DatePicker here --- */}
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <DatePicker
+          label="Select Date"
+          value={selectedDate}
+          onChange={(date) => date && setSelectedDate(date)}
+          slotProps={{ textField: { size: 'small', sx: { mb: 2, width: 200 } } }}
+          disableFuture
+        />
+      </LocalizationProvider>
+
       {/* --- New: Summary Section --- */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
@@ -275,15 +286,6 @@ export function App() {
         <Typography>Loading...</Typography>
       ) : (
         <Box sx={{ flexGrow: 1 }}>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              label="Select Date"
-              value={selectedDate}
-              onChange={(date) => date && setSelectedDate(date)}
-              slotProps={{ textField: { size: 'small', sx: { mb: 2, width: 200 } } }}
-              disableFuture
-            />
-          </LocalizationProvider>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
             <Button variant="outlined" color="secondary" onClick={handleResetAll}>Reset All Values</Button>
             <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday}>Copy from Yesterday</Button>
