@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, Stack as MuiStack } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, LinearProgress, Chip } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
-import { MetricsDisplay } from './MetricsDisplay';
 import { ProgressChart } from './ProgressChart';
 
 const API_BASE_URL = '/api';
@@ -14,10 +14,16 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
   }, [selectedDate]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000 * 60); // update every minute
+    return () => clearInterval(timer);
+  }, []);
 
   const loadDailyProgress = async (dateObj = new Date()) => {
     try {
@@ -144,6 +150,81 @@ export function App() {
     setError('Copy from Yesterday not implemented yet');
   };
 
+  // --- New: Calculate target for current time (IST, milestone-based) ---
+  function getCurrentTimeTarget(entries: NutrientEntry[]) {
+    // Milestone schedule (IST)
+    const milestones = [
+      { hour: 7, minute: 0, pct: 0.15 },    // 7:00  15%
+      { hour: 10, minute: 30, pct: 0.25 }, // 10:30 25%
+      { hour: 13, minute: 0, pct: 0.5 },   // 13:00 50%
+      { hour: 16, minute: 30, pct: 0.65 }, // 16:30 65%
+      { hour: 19, minute: 30, pct: 0.85 }, // 19:30 85%
+      { hour: 21, minute: 0, pct: 1.0 }    // 21:00 100%
+    ];
+    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
+    let targetPct = 1.0; // Default to 100%
+    for (const m of milestones) {
+      const milestoneMinutes = m.hour * 60 + m.minute;
+      if (currentMinutes < milestoneMinutes) {
+        targetPct = m.pct;
+        break;
+      }
+    }
+    return entries.map(entry => ({
+      ...entry,
+      target: entry.required * targetPct
+    }));
+  }
+
+  // --- New: Calculate target for current time (IST, milestone-based) ---
+  function getCurrentTimeTargetPct() {
+    // Milestone schedule (IST)
+    const milestones = [
+      { hour: 7, minute: 0, pct: 0.15 },    // 7:00  15%
+      { hour: 10, minute: 30, pct: 0.25 }, // 10:30 25%
+      { hour: 13, minute: 0, pct: 0.5 },   // 13:00 50%
+      { hour: 16, minute: 30, pct: 0.65 }, // 16:30 65%
+      { hour: 19, minute: 30, pct: 0.85 }, // 19:30 85%
+      { hour: 21, minute: 0, pct: 1.0 }    // 21:00 100%
+    ];
+    const istNow = new Date(now.getTime());
+    const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
+    let targetPct = 1.0; // Default to 100%
+    for (const m of milestones) {
+      const milestoneMinutes = m.hour * 60 + m.minute;
+      if (currentMinutes < milestoneMinutes) {
+        targetPct = m.pct;
+        break;
+      }
+    }
+    return targetPct;
+  }
+
+  // --- New: Time until next reset (midnight IST) ---
+  function getTimeUntilReset() {
+    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    const nextMidnight = new Date(istNow);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const ms = nextMidnight.getTime() - istNow.getTime();
+    const h = Math.floor(ms / (1000 * 60 * 60));
+    const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    return `${h}h ${m}m`;
+  }
+
+  // --- New: Smart Suggestions ---
+  function getSmartSuggestions(entries: NutrientEntry[]) {
+    // Suggest nutrients that are farthest from target for current time
+    const targets = getCurrentTimeTarget(entries);
+    const suggestions = targets
+      .filter(e => e.amount < e.target)
+      .sort((a, b) => (a.amount - a.target) - (b.amount - b.target))
+      .slice(0, 2)
+      .map(e => `Consider adding more ${e.category} (${Math.round(e.target - e.amount)} ${e.unit})`);
+    if (suggestions.length === 0) return ['You are on track!'];
+    return suggestions;
+  }
+
   const calculateOverallCompletion = (entries: NutrientEntry[]): number => {
     const completions = entries.map(entry => 
       Math.min((entry.amount / entry.required) * 100, 100)
@@ -154,9 +235,42 @@ export function App() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Daily Diet Tracker
+        IEM Vibe
       </Typography>
 
+      {/* --- New: Summary Section --- */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+          <Box>
+            <Typography variant="subtitle1">Overall Completion</Typography>
+            <LinearProgress variant="determinate" value={dailyProgress?.overallCompletion || 0} sx={{ height: 10, borderRadius: 5, mb: 1 }} />
+            <Typography variant="body2">{Math.round(dailyProgress?.overallCompletion || 0)}%</Typography>
+          </Box>
+          <Box>
+            <Typography variant="subtitle1">Target for Current Time</Typography>
+            <Stack direction="row" spacing={1}>
+              <Chip
+                color="primary"
+                label={`Expected: ${Math.round(getCurrentTimeTargetPct() * 100)}% of daily diet`}
+              />
+            </Stack>
+          </Box>
+          <Box>
+            <Typography variant="subtitle1">Time Until Next Reset</Typography>
+            <Chip color="primary" label={getTimeUntilReset()} />
+          </Box>
+        </Stack>
+      </Paper>
+
+      {/* --- New: Smart Suggestions --- */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="subtitle1" gutterBottom>Smart Suggestions</Typography>
+        <ul style={{ margin: 0, paddingLeft: 20 }}>
+          {getSmartSuggestions(nutrients).map((s, i) => <li key={i}>{s}</li>)}
+        </ul>
+      </Paper>
+
+      {/* --- Existing controls and sliders --- */}
       {loading ? (
         <Typography>Loading...</Typography>
       ) : (
@@ -170,17 +284,14 @@ export function App() {
               disableFuture
             />
           </LocalizationProvider>
-          <MuiStack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
             <Button variant="outlined" color="secondary" onClick={handleResetAll}>Reset All Values</Button>
             <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday}>Copy from Yesterday</Button>
             <Button variant="contained" color="primary" onClick={handleSaveAll}>Save All Changes</Button>
-          </MuiStack>
+          </Stack>
 
           <Stack spacing={3}>
-            <Paper sx={{ p: 2 }}>
-              <MetricsDisplay dailyProgress={dailyProgress} />
-            </Paper>
-
+            {/* Remove grid of completed items, keep sliders and chart */}
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
               <Paper sx={{ p: 2, flex: 2 }}>
                 {nutrients.map((nutrient) => (
