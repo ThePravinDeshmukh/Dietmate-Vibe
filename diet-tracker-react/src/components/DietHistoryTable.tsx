@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, MenuItem, Select, FormControl, InputLabel, CircularProgress, TableFooter } from '@mui/material';
+import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, MenuItem, Select, FormControl, InputLabel, CircularProgress, TableFooter } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { DAILY_REQUIREMENTS, type DailyRequirement } from './App';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const API_BASE_URL = '/api';
 
@@ -47,10 +49,50 @@ export default function DietHistoryTable() {
     return `${year}-${String(month + 1).padStart(2, '0')}-${d}`;
   });
 
+  // Excel export handler
+  const handleExport = () => {
+    // Prepare header row: [Category, ...dates]
+    const header = ['Category', ...dateList.map(dateStr => dateStr.slice(-2))];
+    // Prepare data rows
+    const rows = DAILY_REQUIREMENTS.map((req: DailyRequirement) => {
+      const row = [
+        `${req.category} (${req.amount} ${req.unit})`,
+        ...dateList.map(dateStr => {
+          const value = data[dateStr]?.[req.category];
+          return value === null || value === undefined ? '-' : value;
+        })
+      ];
+      return row;
+    });
+    // Prepare footer row (Overall %)
+    const footer = [
+      'Overall %',
+      ...dateList.map(dateStr => {
+        const row = DAILY_REQUIREMENTS.map((req: DailyRequirement) => data[dateStr]?.[req.category]);
+        const total = row.reduce((sum: number, val, i) => {
+          const reqAmt = DAILY_REQUIREMENTS[i].amount;
+          return sum + (val !== null && val !== undefined ? Math.min(val as number, reqAmt) : 0);
+        }, 0);
+        const totalRequired = DAILY_REQUIREMENTS.reduce((sum, req) => sum + req.amount, 0);
+        const percent = totalRequired > 0 ? Math.round((total / totalRequired) * 100) : 0;
+        return percent + '%';
+      })
+    ];
+    // Combine all rows
+    const worksheetData = [header, ...rows, footer];
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Diet History');
+    const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
+    const filename = `Diet_History_${monthName}_${year}.xlsx`;
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), filename);
+  };
+
   return (
     <Box sx={{ width: '100%', mx: 'auto', mt: 4 }}>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
           <FormControl size="small">
             <InputLabel>Month</InputLabel>
             <Select value={month} label="Month" onChange={e => setMonth(Number(e.target.value))}>
@@ -68,6 +110,10 @@ export default function DietHistoryTable() {
               })}
             </Select>
           </FormControl>
+          <Box sx={{ flex: 1 }} />
+          <button onClick={handleExport} style={{ padding: '6px 16px', background: '#1976d2', color: 'white', border: 'none', borderRadius: 4, fontWeight: 600, cursor: 'pointer' }}>
+            Export to Excel
+          </button>
         </Box>
       </LocalizationProvider>
       {loading ? <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} /> : (

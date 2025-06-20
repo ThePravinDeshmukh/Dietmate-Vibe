@@ -9,6 +9,7 @@ import { ProgressChart } from './ProgressChart';
 import Tooltip from '@mui/material/Tooltip';
 import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
+import LabReports from './LabReports';
 
 const API_BASE_URL = '/api';
 
@@ -246,6 +247,7 @@ export function App() {
           <Button component={Link} to="/" variant="text" sx={{ mr: 1 }}>Tracker</Button>
           <Button component={Link} to="/history" variant="text">History</Button>
           <Button component={Link} to="/history-table" variant="text">Table</Button>
+          <Button component={Link} to="/lab-reports" variant="text">Lab Reports</Button>
         </Box>
         <Routes>
           <Route path="/" element={
@@ -361,6 +363,7 @@ export function App() {
           } />
           <Route path="/history" element={<DietHistory />} />
           <Route path="/history-table" element={<DietHistoryTable />} />
+          <Route path="/lab-reports" element={<LabReports />} />
         </Routes>
       </Container>
     </BrowserRouter>

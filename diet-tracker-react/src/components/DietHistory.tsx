@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Box, Paper, Typography, CircularProgress, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Box, Typography, CircularProgress, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 

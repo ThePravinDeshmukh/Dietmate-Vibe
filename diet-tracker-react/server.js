@@ -3,6 +3,8 @@ import cors from 'cors';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
+import multer from 'multer';
+import PDFParser from 'pdf2json';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -15,6 +17,9 @@ const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Multer setup for PDF uploads
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Global request logger for debugging
 app.use((req, res, next) => {
@@ -48,6 +53,113 @@ function getISTDayRange(dateParam) {
   const endUTC = new Date(endIST.getTime() - (5.5 * 60 * 60 * 1000));
   return { startUTC, endUTC };
 }
+
+// --- LAB REPORTS API (pdf2json version) ---
+// Upload PDF, extract parameters, and store in MongoDB
+app.post('/api/lab-reports/upload', upload.single('file'), async (req, res) => {
+    try {
+        const { date } = req.body;
+        let parametersToExtract = [];
+        // Assuming parametersToExtract now contains just the names like ["Total Carnitine", "Glycine"]
+        if (req.body.parameters) {
+            try {
+                parametersToExtract = JSON.parse(req.body.parameters);
+            } catch (e) {
+                parametersToExtract = [];
+            }
+        }
+        if (!req.file || !date || !parametersToExtract.length) return res.status(400).json({ error: 'Missing file, date, or parameters to extract' });
+
+        const pdfParser = new PDFParser();
+        pdfParser.parseBuffer(req.file.buffer);
+
+        pdfParser.on('pdfParser_dataError', errData => {
+            res.status(500).json({ error: errData.parserError });
+        });
+
+        pdfParser.on('pdfParser_dataReady', async pdfData => {
+            let pages = null;
+            if (pdfData.formImage && Array.isArray(pdfData.formImage.Pages)) {
+                pages = pdfData.formImage.Pages;
+            } else if (Array.isArray(pdfData.Pages)) {
+                pages = pdfData.Pages;
+            }
+
+            if (!pages) {
+                return res.status(400).json({ error: 'Could not extract text from PDF. The file may be encrypted, malformed, or unsupported.' });
+            }
+
+            // Extract text from all pages
+            const text = pages.map(page =>
+                page.Texts.map(t => decodeURIComponent(t.R.map(r => r.T).join(''))).join(' ')
+            ).join('\n');
+
+            const result = {};
+
+            parametersToExtract.forEach(param => {
+                // This regex is still for "param: value (Normal: range)" format
+                // If you only want the value, the regex can be simpler, but this one still works by capturing just the value.
+                const regex = new RegExp(`${param.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}[:\\s]+([0-9.]+)(?:[^\\d\\n]*Normal[:\\s]*([0-9.\\-–]+))?`, 'i');
+                const match = text.match(regex);
+
+                if (match) {
+                    // Store only the value
+                    result[param] = match[1]; // match[1] is the captured value
+                } else {
+                    // If not found, store null
+                    result[param] = null;
+                }
+            });
+
+            // Upsert: replace if date+fileName exists, otherwise insert new
+            await db.collection('lab_reports').updateOne(
+                { date, fileName: req.file.originalname },
+                {
+                    $set: {
+                        parameters: result, // result now contains only parameter names and their values
+                        uploadedAt: new Date(),
+                    }
+                },
+                { upsert: true }
+            );
+
+            res.json({ success: true, parameters: result });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all unique parameters
+app.get('/api/lab-reports/parameters', async (req, res) => {
+  try {
+    const docs = await db.collection('lab_reports').find({}).toArray();
+    const paramSet = new Set();
+    docs.forEach(doc => {
+      if (doc.parameters) Object.keys(doc.parameters).forEach(p => paramSet.add(p));
+    });
+    res.json(Array.from(paramSet));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get trend data for selected parameters
+app.get('/api/lab-reports/trends', async (req, res) => {
+  try {
+    const params = (req.query.params || '').split(',').map(p => p.trim()).filter(Boolean);
+    if (!params.length) return res.json({ dates: [], });
+    const docs = await db.collection('lab_reports').find({}).sort({ date: 1 }).toArray();
+    const dates = docs.map(doc => doc.date);
+    const result = { dates };
+    params.forEach(param => {
+      result[param] = docs.map(doc => doc.parameters ? doc.parameters[param] ?? null : null);
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Get entries for a specific date (or today if not provided), always query by IST day
 app.get('/api/entries', async (req, res) => {
