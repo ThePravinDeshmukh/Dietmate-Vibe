@@ -4,8 +4,6 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { DAILY_REQUIREMENTS } from './App';
 
-const API_BASE_URL = '/api';
-
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -28,6 +26,14 @@ function getPercentGradientColor(pct: number) {
     const b = Math.round(0 + (60 - 0) * ratio);
     return `rgb(${r},${g},${b})`;
   }
+}
+
+// Helper to format date as YYYY-MM-DD in local time (no timezone shift)
+function formatDateLocal(dateObj: Date) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function DietHistory() {
@@ -59,7 +65,8 @@ export function DietHistory() {
 
   async function handleDayClick(d: number) {
     if (!d) return;
-    const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dateObj = new Date(year, month, d);
+    const dateKey = formatDateLocal(dateObj);
     const resp = await fetch(`/api/entries?date=${dateKey}`);
     if (resp.ok) {
       const entries = await resp.json();

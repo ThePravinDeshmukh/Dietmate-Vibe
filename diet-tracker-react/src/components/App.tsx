@@ -33,7 +33,7 @@ export function App() {
   const loadDailyProgress = async (dateObj = new Date()) => {
     try {
       setLoading(true);
-      const dateStr = formatDateIST(dateObj);
+      const dateStr = formatDateLocal(dateObj);
       const response = await fetch(`${API_BASE_URL}/entries?date=${dateStr}`);
       if (!response.ok) {
         throw new Error('Failed to fetch entries');
@@ -93,8 +93,8 @@ export function App() {
         setDailyProgress(updatedProgress);
       }
 
-      // Save to database with correct IST date
-      const dateStr = formatDateIST(selectedDate);
+      // Save to database with correct date
+      const dateStr = formatDateLocal(selectedDate);
       const response = await fetch(`${API_BASE_URL}/entries`, {
         method: 'POST',
         headers: {
@@ -117,7 +117,7 @@ export function App() {
       const resetNutrients = nutrients.map(n => ({ ...n, amount: 0 }));
       setNutrients(resetNutrients);
       setDailyProgress(prev => prev ? { ...prev, entries: resetNutrients, overallCompletion: 0 } : null);
-      const dateStr = formatDateIST(selectedDate);
+      const dateStr = formatDateLocal(selectedDate);
       await fetch(`${API_BASE_URL}/entries/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,7 +131,7 @@ export function App() {
   // Save all changes (batch update)
   const handleSaveAll = async () => {
     try {
-      const dateStr = formatDateIST(selectedDate);
+      const dateStr = formatDateLocal(selectedDate);
       const response = await fetch(`${API_BASE_URL}/entries/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -370,13 +370,11 @@ export function App() {
   );
 }
 
-// Helper to format date as YYYY-MM-DD in IST
-function formatDateIST(dateObj: Date) {
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istDate = new Date(dateObj.getTime() + istOffset);
-  const year = istDate.getFullYear();
-  const month = String(istDate.getMonth() + 1).padStart(2, '0');
-  const day = String(istDate.getDate()).padStart(2, '0');
+// Helper to format date as YYYY-MM-DD in local time (no timezone shift)
+function formatDateLocal(dateObj: Date) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
