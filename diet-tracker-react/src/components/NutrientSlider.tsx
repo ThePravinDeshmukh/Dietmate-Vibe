@@ -10,15 +10,7 @@ interface NutrientSliderProps {
 }
 
 const SliderContainer = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '1rem',
   padding: '0.5rem 0',
-});
-
-const ValueDisplay = styled(Typography)({
-  minWidth: '100px',
-  fontWeight: 'bold',
 });
 
 export function NutrientSlider({
@@ -33,9 +25,14 @@ export function NutrientSlider({
 
   return (
     <SliderContainer>
-      <ValueDisplay variant="body1">
-        {statusEmoji} {category}
-      </ValueDisplay>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Typography variant="body1" fontWeight="bold">
+          {statusEmoji} {category}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {amount.toFixed(1)}/{maxAmount} {unit}
+        </Typography>
+      </Box>
       <Slider
         value={amount}
         min={0}
@@ -43,14 +40,12 @@ export function NutrientSlider({
         step={0.5}
         onChange={(_, value) => onChange(value as number)}
         sx={{
+          mt: 1,
           '& .MuiSlider-track': {
             backgroundColor: completion >= 100 ? '#28a745' : '#1976d2',
           },
         }}
       />
-      <Typography variant="body2" sx={{ minWidth: '80px' }}>
-        {amount.toFixed(1)}/{maxAmount} {unit}
-      </Typography>
     </SliderContainer>
   );
 }
