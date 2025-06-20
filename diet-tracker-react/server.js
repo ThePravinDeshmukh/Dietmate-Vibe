@@ -6,7 +6,7 @@ import bodyParser from 'body-parser';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
-
+import { DAILY_REQUIREMENTS } from './shared/requirements.js';
 
 dotenv.config();
 
@@ -144,11 +144,10 @@ app.get('/api/history', async (req, res) => {
     const startUTC = new Date(startIST.getTime() - (5.5 * 60 * 60 * 1000));
     const endUTC = new Date(endIST.getTime() - (5.5 * 60 * 60 * 1000));
 
-    // Get requirements for all categories
-    const requirementsArr = await db.collection('diet_requirements').find({}).toArray();
+    // Use shared requirements
     const reqMap = {};
     let totalRequired = 0;
-    requirementsArr.forEach(r => {
+    DAILY_REQUIREMENTS.forEach(r => {
       reqMap[r.category] = Number(r.amount) || 0;
       totalRequired += Number(r.amount) || 0;
     });
@@ -199,6 +198,66 @@ app.get('/api/entries/all', async (req, res) => {
   try {
     const entries = await db.collection('diet_entries').find({}).toArray();
     res.json(entries);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all entries for a date range, grouped by IST date and category
+app.get('/api/entries/batch/:start/:end', async (req, res) => {
+  try {
+    const { start, end } = req.params;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Missing start or end date' });
+    }
+    // Parse dates as IST
+    const [startY, startM, startD] = start.split('-').map(Number);
+    const [endY, endM, endD] = end.split('-').map(Number);
+    const startIST = new Date(Date.UTC(startY, startM - 1, startD, 0, 0, 0));
+    const endIST = new Date(Date.UTC(endY, endM - 1, endD, 23, 59, 59, 999));
+    const startUTC = new Date(startIST.getTime() - (5.5 * 60 * 60 * 1000));
+    const endUTC = new Date(endIST.getTime() - (5.5 * 60 * 60 * 1000));
+
+    // Query all entries in range
+    const entries = await db.collection('diet_entries').find({
+      date: { $gte: startUTC, $lte: endUTC }
+    }).toArray();
+
+    // Group by IST date string
+    const byDate = {};
+    entries.forEach(e => {
+      const utc = new Date(e.date);
+      const ist = new Date(utc.getTime() + (5.5 * 60 * 60 * 1000));
+      const dstr = ist.toISOString().slice(0, 10);
+      if (!byDate[dstr]) byDate[dstr] = [];
+      byDate[dstr].push(e);
+    });
+
+    // For each day in range, ensure all categories are present (fill missing with null)
+    const result = {};
+    let cur = new Date(startIST);
+    while (cur <= endIST) {
+      const dstr = cur.toISOString().slice(0, 10);
+      const entriesForDay = byDate[dstr] || [];
+      // Map by category for fast lookup
+      const catMap = {};
+      entriesForDay.forEach(e => { catMap[e.category] = e; });
+      // For each required category, fill in value or null
+      result[dstr] = DAILY_REQUIREMENTS.map(req => {
+        const entry = catMap[req.category];
+        return entry ? {
+          category: req.category,
+          amount: entry.amount,
+          unit: entry.unit
+        } : {
+          category: req.category,
+          amount: null,
+          unit: req.unit
+        };
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

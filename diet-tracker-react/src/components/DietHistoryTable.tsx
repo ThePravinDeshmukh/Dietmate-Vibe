@@ -1,0 +1,146 @@
+import { useEffect, useState } from 'react';
+import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, MenuItem, Select, FormControl, InputLabel, CircularProgress, TableFooter } from '@mui/material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { DAILY_REQUIREMENTS, type DailyRequirement } from './App';
+
+const API_BASE_URL = '/api';
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+export default function DietHistoryTable() {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [data, setData] = useState<{ [date: string]: { [cat: string]: number | null } }>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchMonthData() {
+      setLoading(true);
+      const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
+      const resp = await fetch(`${API_BASE_URL}/entries/batch/${start}/${end}`);
+      if (resp.ok) {
+        const obj = await resp.json();
+        // obj: { 'YYYY-MM-DD': [ {category, amount, ...}, ... ] }
+        const map: { [date: string]: { [cat: string]: number|null } } = {};
+        Object.entries(obj).forEach(([date, arr]) => {
+          map[date] = {};
+          (arr as any[]).forEach(entry => {
+            map[date][entry.category] = entry.amount;
+          });
+        });
+        setData(map);
+      }
+      setLoading(false);
+    }
+    fetchMonthData();
+  }, [year, month]);
+
+  const days = getDaysInMonth(year, month);
+  const dateList = Array.from({ length: days }, (_, i) => {
+    const d = String(i + 1).padStart(2, '0');
+    return `${year}-${String(month + 1).padStart(2, '0')}-${d}`;
+  });
+
+  return (
+    <Box sx={{ width: '100%', mx: 'auto', mt: 4 }}>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <FormControl size="small">
+            <InputLabel>Month</InputLabel>
+            <Select value={month} label="Month" onChange={e => setMonth(Number(e.target.value))}>
+              {[...Array(12)].map((_, i) => (
+                <MenuItem key={i} value={i}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel>Year</InputLabel>
+            <Select value={year} label="Year" onChange={e => setYear(Number(e.target.value))}>
+              {[...Array(5)].map((_, i) => {
+                const y = today.getFullYear() - 2 + i;
+                return <MenuItem key={y} value={y}>{y}</MenuItem>;
+              })}
+            </Select>
+          </FormControl>
+        </Box>
+      </LocalizationProvider>
+      {loading ? <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} /> : (
+        <TableContainer component={Paper}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 2, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Category</TableCell>
+                {dateList.map(dateStr => (
+                  <TableCell key={dateStr} align="center"
+                    sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: dateStr === todayStr ? 'primary.light' : 'grey.100', borderRight: 1, borderColor: 'grey.200' }}>
+                    {dateStr.slice(-2)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {DAILY_REQUIREMENTS.map((req: DailyRequirement) => (
+                <TableRow key={req.category}>
+                  <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>
+                    {req.category}
+                    <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400, fontSize: '0.95em', ml: 0.5 }}>
+                      ({req.amount} {req.unit})
+                    </Box>
+                  </TableCell>
+                  {dateList.map(dateStr => {
+                    const value = data[dateStr]?.[req.category];
+                    const isFuture = new Date(dateStr) > today;
+                    let cellSx: any = { borderRight: 1, borderColor: 'grey.200' };
+                    if (dateStr === todayStr) cellSx = { ...cellSx, bgcolor: 'primary.lighter', fontWeight: 'bold' };
+                    if (!isFuture) {
+                      if (value === null || value === undefined) cellSx = { ...cellSx, bgcolor: '#ffeaea', color: 'error.dark', fontWeight: 'bold' };
+                      else if (value === 0) cellSx = { ...cellSx, bgcolor: '#fff8e1', color: 'warning.dark', fontWeight: 'bold' };
+                      else cellSx = { ...cellSx, bgcolor: '#e8f5e9', color: 'success.dark' };
+                    }
+                    return (
+                      <TableCell key={dateStr} align="center" sx={cellSx}>
+                        {value === null || value === undefined ? '-' : value}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Overall %</TableCell>
+                {dateList.map(dateStr => {
+                  // Calculate percent for this date
+                  const isFuture = new Date(dateStr) > today;
+                  const row = DAILY_REQUIREMENTS.map((req: DailyRequirement) => data[dateStr]?.[req.category]);
+                  const total = row.reduce((sum: number, val, i) => {
+                    const reqAmt = DAILY_REQUIREMENTS[i].amount;
+                    return sum + (val !== null && val !== undefined ? Math.min(val as number, reqAmt) : 0);
+                  }, 0);
+                  const totalRequired = DAILY_REQUIREMENTS.reduce((sum, req) => sum + req.amount, 0);
+                  const percent = totalRequired > 0 ? Math.round((total / totalRequired) * 100) : 0;
+                  let cellSx: any = { fontWeight: 'bold', fontSize: '1.1rem', borderRight: 1, borderColor: 'grey.200' };
+                  if (dateStr === todayStr) cellSx = { ...cellSx, bgcolor: 'primary.lighter' };
+                  if (!isFuture) {
+                    if (percent >= 90) cellSx = { ...cellSx, bgcolor: '#e8f5e9', color: 'success.dark' };
+                    else if (percent >= 60) cellSx = { ...cellSx, bgcolor: '#fff8e1', color: 'warning.dark' };
+                    else cellSx = { ...cellSx, bgcolor: '#ffeaea', color: 'error.dark' };
+                  }
+                  return (
+                    <TableCell key={dateStr} align="center" sx={cellSx}>{percent}%</TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+}

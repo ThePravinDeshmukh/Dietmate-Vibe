@@ -8,6 +8,7 @@ import { NutrientSlider } from './NutrientSlider';
 import { ProgressChart } from './ProgressChart';
 import Tooltip from '@mui/material/Tooltip';
 import { DietHistory } from './DietHistory';
+import DietHistoryTable from './DietHistoryTable';
 
 const API_BASE_URL = '/api';
 
@@ -244,6 +245,7 @@ export function App() {
         <Box sx={{ mb: 2 }}>
           <Button component={Link} to="/" variant="text" sx={{ mr: 1 }}>Tracker</Button>
           <Button component={Link} to="/history" variant="text">History</Button>
+          <Button component={Link} to="/history-table" variant="text">Table</Button>
         </Box>
         <Routes>
           <Route path="/" element={
@@ -358,6 +360,7 @@ export function App() {
             </>
           } />
           <Route path="/history" element={<DietHistory />} />
+          <Route path="/history-table" element={<DietHistoryTable />} />
         </Routes>
       </Container>
     </BrowserRouter>
@@ -374,7 +377,13 @@ function formatDateIST(dateObj: Date) {
   return `${year}-${month}-${day}`;
 }
 
-const DAILY_REQUIREMENTS = [
+export type DailyRequirement = {
+  category: string;
+  amount: number;
+  unit: string;
+};
+
+export const DAILY_REQUIREMENTS: DailyRequirement[] = [
   { category: "cereal", amount: 12.5, unit: "exchange" },
   { category: "dried fruit", amount: 1, unit: "exchange" },
   { category: "fresh fruit", amount: 1, unit: "exchange" },
