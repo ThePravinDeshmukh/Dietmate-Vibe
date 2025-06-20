@@ -37,15 +37,16 @@ async function connectToMongoDB() {
 
 // Helper to get start and end of day in IST (UTC+5:30)
 function getISTDayRange(dateParam) {
+  // dateParam: 'YYYY-MM-DD' in IST
   const [year, month, day] = dateParam.split('-').map(Number);
-  // JS months are 0-based
-  // Create a UTC date for the start of the day in IST
-  const startUTC = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - (5.5 * 60 * 60 * 1000);
-  const endUTC = Date.UTC(year, month - 1, day, 23, 59, 59, 999) - (5.5 * 60 * 60 * 1000);
-  return {
-    startIST: new Date(startUTC),
-    endIST: new Date(endUTC)
-  };
+  // Start of day in IST
+  const startIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  // End of day in IST
+  const endIST = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  // Convert IST to UTC by subtracting 5.5 hours
+  const startUTC = new Date(startIST.getTime() - (5.5 * 60 * 60 * 1000));
+  const endUTC = new Date(endIST.getTime() - (5.5 * 60 * 60 * 1000));
+  return { startUTC, endUTC };
 }
 
 // Get entries for a specific date (or today if not provided), always query by IST day
@@ -53,9 +54,9 @@ app.get('/api/entries', async (req, res) => {
   try {
     const dateParam = req.query.date || new Date().toISOString().split('T')[0];
     console.log('Querying for date (IST):', dateParam);
-    const { startIST, endIST } = getISTDayRange(dateParam);
+    const { startUTC, endUTC } = getISTDayRange(dateParam);
     const entries = await db.collection('diet_entries').find({
-      date: { $gte: startIST, $lte: endIST }
+      date: { $gte: startUTC, $lte: endUTC }
     }).toArray();
     console.log(`Found ${entries.length} entries for date (IST): ${dateParam}`);
     res.json(entries);
@@ -69,12 +70,13 @@ app.post('/api/entries', async (req, res) => {
   try {
     const { category, amount, date } = req.body;
     // Use provided date or default to today (in IST)
-    const dateParam = date || new Date();
-    const dateObj = typeof dateParam === 'string' ? new Date(dateParam) : dateParam;
-    // Set to IST start of day
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(dateObj.getTime() + istOffset);
-    const entryDate = new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate(), 0, 0, 0, 0);
+    const dateParam = date || new Date().toISOString().split('T')[0];
+    // Always treat dateParam as 'YYYY-MM-DD' in IST
+    const [year, month, day] = typeof dateParam === 'string' ? dateParam.split('-').map(Number) : [dateParam.getFullYear(), dateParam.getMonth() + 1, dateParam.getDate()];
+    // Start of day in IST
+    const startIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+    // Convert IST to UTC by subtracting 5.5 hours
+    const entryDate = new Date(startIST.getTime() - (5.5 * 60 * 60 * 1000));
 
     await db.collection('diet_entries').updateOne(
       { date: entryDate, category },
@@ -101,14 +103,18 @@ app.post('/api/entries/batch', async (req, res) => {
     if (!date || !Array.isArray(entries)) {
       return res.status(400).json({ error: 'Missing date or entries array' });
     }
+    // Always treat date as 'YYYY-MM-DD' in IST
+    const [year, month, day] = date.split('-').map(Number);
+    const startIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+    const entryDate = new Date(startIST.getTime() - (5.5 * 60 * 60 * 1000));
     const bulkOps = entries.map(entry => ({
       updateOne: {
-        filter: { date, category: entry.category },
+        filter: { date: entryDate, category: entry.category },
         update: {
           $set: {
             amount: entry.amount,
             unit: entry.unit,
-            date,
+            date: entryDate,
           }
         },
         upsert: true

@@ -9,7 +9,8 @@
     "start": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "debug": "node --inspect-brk server.js"
   },
   "dependencies": {
     "@date-io/date-fns": "^3.2.1",
