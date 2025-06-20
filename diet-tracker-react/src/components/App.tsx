@@ -5,6 +5,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
 import { ProgressChart } from './ProgressChart';
+import Tooltip from '@mui/material/Tooltip';
 
 const API_BASE_URL = '/api';
 
@@ -240,9 +241,11 @@ export function App() {
 
       {/* --- Top bar: DatePicker and action buttons in a row --- */}
       <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        alignItems="center"
+        direction="row"
+        spacing={1}
+        alignItems="flex-start"
+        justifyContent="flex-start"
+        flexWrap="wrap"
         sx={{
           mb: 3,
           position: 'sticky',
@@ -259,13 +262,19 @@ export function App() {
             label="Select Date"
             value={selectedDate}
             onChange={(date) => date && setSelectedDate(date)}
-            slotProps={{ textField: { size: 'small', sx: { width: 200 } } }}
+            slotProps={{ textField: { size: 'small', sx: { width: 140, mr: 1, mb: { xs: 1, sm: 0 } } } }}
             disableFuture
           />
         </LocalizationProvider>
-        <Button variant="outlined" color="secondary" onClick={handleResetAll}>Reset All Values</Button>
-        <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday}>Copy from Yesterday</Button>
-        <Button variant="contained" color="primary" onClick={handleSaveAll}>Save All Changes</Button>
+        <Tooltip title="Reset All Values">
+          <Button variant="outlined" color="secondary" onClick={handleResetAll} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Reset</Button>
+        </Tooltip>
+        <Tooltip title="Copy from Yesterday">
+          <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Copy</Button>
+        </Tooltip>
+        <Tooltip title="Save All Changes">
+          <Button variant="contained" color="primary" onClick={handleSaveAll} sx={{ minWidth: 64, mb: { xs: 1, sm: 0 } }}>Save</Button>
+        </Tooltip>
       </Stack>
 
       {/* --- New: Summary Section --- */}
