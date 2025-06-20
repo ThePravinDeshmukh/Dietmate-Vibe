@@ -9,6 +9,26 @@ function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
 
+// Helper to interpolate color from red (0%) to orange (50%) to green (100%)
+function getPercentGradientColor(pct: number) {
+  // 0%: #f44336 (red), 50%: #ff9800 (orange), 100%: #388e3c (green)
+  if (pct <= 50) {
+    // Red to Orange
+    const ratio = pct / 50;
+    const r = Math.round(244 + (255 - 244) * ratio);
+    const g = Math.round(67 + (152 - 67) * ratio);
+    const b = Math.round(54 + (0 - 54) * ratio);
+    return `rgb(${r},${g},${b})`;
+  } else {
+    // Orange to Green
+    const ratio = (pct - 50) / 50;
+    const r = Math.round(255 + (56 - 255) * ratio);
+    const g = Math.round(152 + (142 - 152) * ratio);
+    const b = Math.round(0 + (60 - 0) * ratio);
+    return `rgb(${r},${g},${b})`;
+  }
+}
+
 export function DietHistory() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -92,29 +112,68 @@ export function DietHistory() {
             ))}
             {weeks.map((week, i) => week.map((d, j) => {
               const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-              const percent = data[dateKey] ?? 0;
+              const percentRaw = data[dateKey];
+              const percent = percentRaw ?? null;
+              const isToday = d &&
+                year === today.getFullYear() &&
+                month === today.getMonth() &&
+                d === today.getDate();
+              // Check if this date is in the future
+              const cellDate = d ? new Date(year, month, d) : null;
+              const isFuture = cellDate && cellDate > new Date(today.getFullYear(), today.getMonth(), today.getDate());
               return (
                 <Box
                   key={i + '-' + j}
                   sx={{
-                    border: '1px solid #ccc',
+                    border: isToday ? '2px solid #1976d2' : '1px solid #ccc',
                     height: 56,
                     width: '100%',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: d ? '#fff' : 'transparent',
+                    background: d ? (isToday ? '#e3f2fd' : '#fff') : 'transparent',
                     p: 1,
                     boxSizing: 'border-box',
+                    position: 'relative',
+                    transition: 'border 0.2s, background 0.2s',
                   }}
                 >
                   {d ? (
                     <>
-                      <Typography variant="body1" color="text.primary">{d}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {`${Math.round(percent)}%`}
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ position: 'absolute', top: 4, left: 8, fontSize: 14, fontWeight: 700 }}
+                      >
+                        {d}
                       </Typography>
+                      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        <Box
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 2,
+                            bgcolor:
+                              isFuture || percent === null
+                                ? 'grey.100'
+                                : getPercentGradientColor(percent),
+                            color:
+                              isFuture || percent === null
+                                ? 'text.disabled'
+                                : '#fff',
+                            fontWeight: 700,
+                            fontSize: 16,
+                            minWidth: 36,
+                            textAlign: 'center',
+                            transition: 'all 0.2s',
+                            boxShadow: percent > 0 && !isFuture ? 1 : 0,
+                            display: 'inline-block',
+                          }}
+                        >
+                          {isFuture || percent === null ? '-' : `${Math.round(percent)}%`}
+                        </Box>
+                      </Box>
                     </>
                   ) : null}
                 </Box>
