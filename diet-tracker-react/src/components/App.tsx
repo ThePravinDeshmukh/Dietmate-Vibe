@@ -387,7 +387,7 @@ export type DailyRequirement = {
 export const DAILY_REQUIREMENTS: DailyRequirement[] = [
   { category: "cereal", amount: 12.5, unit: "exchange" },
   { category: "dried fruit", amount: 1, unit: "exchange" },
-  { category: "fresh fruit", amount: 1, unit: "exchange" },
+  { category: "fresh fruit", amount: 3, unit: "exchange" },
   { category: "legumes", amount: 3, unit: "exchange" },
   { category: "other vegetables", amount: 3, unit: "exchange" },
   { category: "root vegetables", amount: 2, unit: "exchange" },
