@@ -238,16 +238,21 @@ export function App() {
         IEM Vibe
       </Typography>
 
-      {/* --- Move DatePicker here --- */}
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <DatePicker
-          label="Select Date"
-          value={selectedDate}
-          onChange={(date) => date && setSelectedDate(date)}
-          slotProps={{ textField: { size: 'small', sx: { mb: 2, width: 200 } } }}
-          disableFuture
-        />
-      </LocalizationProvider>
+      {/* --- Top bar: DatePicker and action buttons in a row --- */}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ mb: 3 }}>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <DatePicker
+            label="Select Date"
+            value={selectedDate}
+            onChange={(date) => date && setSelectedDate(date)}
+            slotProps={{ textField: { size: 'small', sx: { width: 200 } } }}
+            disableFuture
+          />
+        </LocalizationProvider>
+        <Button variant="outlined" color="secondary" onClick={handleResetAll}>Reset All Values</Button>
+        <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday}>Copy from Yesterday</Button>
+        <Button variant="contained" color="primary" onClick={handleSaveAll}>Save All Changes</Button>
+      </Stack>
 
       {/* --- New: Summary Section --- */}
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -286,12 +291,7 @@ export function App() {
         <Typography>Loading...</Typography>
       ) : (
         <Box sx={{ flexGrow: 1 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-            <Button variant="outlined" color="secondary" onClick={handleResetAll}>Reset All Values</Button>
-            <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday}>Copy from Yesterday</Button>
-            <Button variant="contained" color="primary" onClick={handleSaveAll}>Save All Changes</Button>
-          </Stack>
-
+          {/* Removed DatePicker and buttons from here, now in top bar */}
           <Stack spacing={3}>
             {/* Remove grid of completed items, keep sliders and chart */}
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
