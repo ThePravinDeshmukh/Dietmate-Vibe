@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, LinearProgress, Chip } from '@mui/material';
+import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, LinearProgress, Chip, CircularProgress } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { NutrientEntry, DailyProgress } from '../types';
@@ -22,6 +22,7 @@ export function App() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [now, setNow] = useState(new Date());
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
@@ -95,6 +96,7 @@ export function App() {
 
   const handleNutrientChange = async (category: string, amount: number) => {
     try {
+      setSaveStatus('saving');
       const updatedNutrients = nutrients.map(nutrient =>
         nutrient.category === category ? { ...nutrient, amount } : nutrient
       );
@@ -121,9 +123,12 @@ export function App() {
       });
 
       if (!response.ok) {
+        setSaveStatus('error');
         throw new Error('Failed to update entry');
       }
+      setSaveStatus('saved');
     } catch (err) {
+      setSaveStatus('error');
       setError(err instanceof Error ? err.message : 'Failed to update nutrient');
     }
   };
@@ -322,10 +327,6 @@ export function App() {
                       />
                     </Stack>
                   </Box>
-                  <Box>
-                    <Typography variant="subtitle1">Time Until Next Reset</Typography>
-                    <Chip color="primary" label={""} />
-                  </Box>
                 </Stack>
               </Paper>
 
@@ -345,6 +346,12 @@ export function App() {
                   <Stack spacing={3}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
                       <Paper sx={{ p: 2, flex: 2 }}>
+                        {/* --- New: Save status indicator --- */}
+                        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                          {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving..." color="info" variant="outlined" />}
+                          {saveStatus === 'saved' && <Chip label="All changes saved" color="success" variant="outlined" />}
+                          {saveStatus === 'error' && <Chip label="Save failed" color="error" variant="outlined" />}
+                        </Stack>
                         {nutrients.map((nutrient) => (
                           <Box key={nutrient.category} sx={{ mb: 2 }}>
                             <NutrientSlider
