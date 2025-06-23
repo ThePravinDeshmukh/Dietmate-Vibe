@@ -278,15 +278,6 @@ def sort_categories_by_completion(consumed):
     # Return incomplete items first, then complete items
     return incomplete + complete
 
-def get_hours_until_midnight():
-    """Calculate hours and minutes remaining until midnight"""
-    now = datetime.now()
-    midnight = (now + pd.Timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    delta = midnight - now
-    hours = delta.total_seconds() / 3600
-    minutes = (hours % 1) * 60
-    return f"{int(hours)}h {int(minutes)}m"
-
 def copy_from_yesterday(target_date_str):
     """Copy diet entries from the previous day to the target date (locally only, without saving to database)"""
     # Calculate yesterday's date based on the target date
@@ -385,7 +376,7 @@ if page == "Daily Tracking":
             with col_metric2:
                 st.metric("Target for Current Time", f"{target_completion}%")
             with col_metric3:
-                time_remaining = get_hours_until_midnight()
+                time_remaining = "Calculating..."  # Placeholder for time remaining
                 st.metric("Time Until Next Reset", time_remaining)
             
             # Show smart suggestions

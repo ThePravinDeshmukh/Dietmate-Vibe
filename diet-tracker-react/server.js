@@ -375,6 +375,11 @@ app.get('/api/entries/batch/:start/:end', async (req, res) => {
   }
 });
 
+// --- Ping endpoint for health check ---
+app.get('/api/ping', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 // Serve static files from the dist directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

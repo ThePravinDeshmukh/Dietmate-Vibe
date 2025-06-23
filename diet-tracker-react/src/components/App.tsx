@@ -10,6 +10,7 @@ import Tooltip from '@mui/material/Tooltip';
 import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
 import LabReports from './LabReports';
+import { CloudDone, CloudOff } from '@mui/icons-material';
 
 const API_BASE_URL = '/api';
 
@@ -20,6 +21,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [now, setNow] = useState(new Date());
+  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
@@ -28,6 +30,21 @@ export function App() {
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000 * 60); // update every minute
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkPing = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/ping`, { cache: 'no-store' });
+        if (isMounted) setConnectionStatus(res.ok ? 'online' : 'offline');
+      } catch {
+        if (isMounted) setConnectionStatus('offline');
+      }
+    };
+    checkPing();
+    const interval = setInterval(checkPing, 10000); // every 10s
+    return () => { isMounted = false; clearInterval(interval); };
   }, []);
 
   const loadDailyProgress = async (dateObj = new Date()) => {
@@ -206,16 +223,6 @@ export function App() {
     return targetPct;
   }
 
-  // --- New: Time until next reset (midnight IST) ---
-  function getTimeUntilReset() {
-    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-    const nextMidnight = new Date(istNow);
-    nextMidnight.setHours(24, 0, 0, 0);
-    const ms = nextMidnight.getTime() - istNow.getTime();
-    const h = Math.floor(ms / (1000 * 60 * 60));
-    const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    return `${h}h ${m}m`;
-  }
 
   // --- New: Smart Suggestions ---
   function getSmartSuggestions(entries: NutrientEntry[]) {
@@ -240,9 +247,18 @@ export function App() {
   return (
     <BrowserRouter>
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          IEM Vibe
-        </Typography>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            IEM Vibe
+          </Typography>
+          <Chip
+            icon={connectionStatus === 'online' ? <CloudDone sx={{ color: 'green' }} /> : <CloudOff sx={{ color: 'red' }} />}
+            label={connectionStatus === 'online' ? 'Online' : 'Offline'}
+            color={connectionStatus === 'online' ? 'success' : 'error'}
+            variant="outlined"
+            sx={{ minWidth: 100 }}
+          />
+        </Stack>
         <Box sx={{ mb: 2 }}>
           <Button component={Link} to="/" variant="text" sx={{ mr: 1 }}>Tracker</Button>
           <Button component={Link} to="/history" variant="text">History</Button>
@@ -308,7 +324,7 @@ export function App() {
                   </Box>
                   <Box>
                     <Typography variant="subtitle1">Time Until Next Reset</Typography>
-                    <Chip color="primary" label={getTimeUntilReset()} />
+                    <Chip color="primary" label={""} />
                   </Box>
                 </Stack>
               </Paper>
@@ -385,7 +401,7 @@ export type DailyRequirement = {
 };
 
 export const DAILY_REQUIREMENTS: DailyRequirement[] = [
-  { category: "cereal", amount: 12.5, unit: "exchange" },
+  { category: "cereal", amount: 13, unit: "exchange" },
   { category: "dried fruit", amount: 1, unit: "exchange" },
   { category: "fresh fruit", amount: 3, unit: "exchange" },
   { category: "legumes", amount: 3, unit: "exchange" },
@@ -398,6 +414,6 @@ export const DAILY_REQUIREMENTS: DailyRequirement[] = [
   { category: "oil ghee", amount: 30, unit: "grams" },
   { category: "pa formula", amount: 32, unit: "grams" },
   { category: "cal-c formula", amount: 24, unit: "grams" },
-  { category: "isoleucine", amount: 4, unit: "grams" },
+  { category: "isoleucine", amount: 3, unit: "grams" },
   { category: "valine", amount: 4, unit: "grams" }
 ];
