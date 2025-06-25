@@ -68,13 +68,14 @@ export default function DietHistoryTable() {
     const footer = [
       'Overall %',
       ...dateList.map(dateStr => {
-        const row = DAILY_REQUIREMENTS.map((req: DailyRequirement) => data[dateStr]?.[req.category]);
-        const total = row.reduce((sum: number, val, i) => {
-          const reqAmt = DAILY_REQUIREMENTS[i].amount;
-          return sum + (val !== null && val !== undefined ? Math.min(val as number, reqAmt) : 0);
-        }, 0);
-        const totalRequired = DAILY_REQUIREMENTS.reduce((sum, req) => sum + req.amount, 0);
-        const percent = totalRequired > 0 ? Math.round((total / totalRequired) * 100) : 0;
+        // Per-category percent (capped at 100%)
+        const perCategoryPercents = DAILY_REQUIREMENTS.map((req: DailyRequirement) => {
+          const val = data[dateStr]?.[req.category];
+          const reqAmt = req.amount;
+          if (val === null || val === undefined) return 0;
+          return Math.min((val / reqAmt) * 100, 100);
+        });
+        const percent = perCategoryPercents.length > 0 ? Math.round(perCategoryPercents.reduce((a, b) => a + b, 0) / perCategoryPercents.length) : 0;
         return percent + '%';
       })
     ];
@@ -162,15 +163,15 @@ export default function DietHistoryTable() {
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Overall %</TableCell>
                 {dateList.map(dateStr => {
-                  // Calculate percent for this date
+                  // Calculate percent for this date (average per-category)
                   const isFuture = new Date(dateStr) > today;
-                  const row = DAILY_REQUIREMENTS.map((req: DailyRequirement) => data[dateStr]?.[req.category]);
-                  const total = row.reduce((sum: number, val, i) => {
-                    const reqAmt = DAILY_REQUIREMENTS[i].amount;
-                    return sum + (val !== null && val !== undefined ? Math.min(val as number, reqAmt) : 0);
-                  }, 0);
-                  const totalRequired = DAILY_REQUIREMENTS.reduce((sum, req) => sum + req.amount, 0);
-                  const percent = totalRequired > 0 ? Math.round((total / totalRequired) * 100) : 0;
+                  const perCategoryPercents = DAILY_REQUIREMENTS.map((req: DailyRequirement) => {
+                    const val = data[dateStr]?.[req.category];
+                    const reqAmt = req.amount;
+                    if (val === null || val === undefined) return 0;
+                    return Math.min((val / reqAmt) * 100, 100);
+                  });
+                  const percent = perCategoryPercents.length > 0 ? Math.round(perCategoryPercents.reduce((a, b) => a + b, 0) / perCategoryPercents.length) : 0;
                   let cellSx: any = { fontWeight: 'bold', fontSize: '1.1rem', borderRight: 1, borderColor: 'grey.200' };
                   if (dateStr === todayStr) cellSx = { ...cellSx, bgcolor: 'primary.lighter' };
                   if (!isFuture) {
