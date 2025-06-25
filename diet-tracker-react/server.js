@@ -285,17 +285,18 @@ app.get('/api/history', async (req, res) => {
     const results = [];
     let cur = new Date(startIST);
     while (cur <= endIST) {
-      // Get IST date string
       const dstr = cur.toISOString().slice(0, 10);
       const entriesForDay = byDate[dstr] || [];
-      let total = 0;
-      entriesForDay.forEach(e => {
-        const cat = e.category;
-        const amt = Number(e.amount) || 0;
-        const req = reqMap[cat] || 0;
-        total += Math.min(amt, req);
+      // Map category to amount for this day
+      const catMap = {};
+      entriesForDay.forEach(e => { catMap[e.category] = Number(e.amount) || 0; });
+      // For each required category, compute capped percent
+      const perCategoryPercents = DAILY_REQUIREMENTS.map(req => {
+        const amt = catMap[req.category] || 0;
+        const reqAmt = Number(req.amount) || 1;
+        return Math.min((amt / reqAmt) * 100, 100);
       });
-      const percent = Math.round((total / totalRequired) * 100);
+      const percent = Math.round(perCategoryPercents.reduce((a, b) => a + b, 0) / perCategoryPercents.length);
       results.push({ date: dstr, overallCompletion: percent });
       cur.setDate(cur.getDate() + 1);
     }
