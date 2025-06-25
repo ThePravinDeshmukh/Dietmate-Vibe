@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import multer from 'multer';
 import PDFParser from 'pdf2json';
+import webpush from 'web-push';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -381,15 +382,78 @@ app.get('/api/ping', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Serve static files from the dist directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-app.use(express.static(path.join(__dirname, 'dist')));
-
-// SPA fallback (must be last route)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// --- Remind missing diet entries for yesterday (single user, WhatsApp placeholder) ---
+app.post('/api/remind-missing-diet', async (req, res) => {
+  try {
+    // Hardcoded user phone number (WhatsApp)
+    const userPhone = '+911234567890'; // Change to your number
+    // Get yesterday's date in IST
+    const now = new Date();
+    const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    istNow.setDate(istNow.getDate() - 1); // yesterday
+    const y = istNow.getFullYear();
+    const m = String(istNow.getMonth() + 1).padStart(2, '0');
+    const d = String(istNow.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+    const { startUTC, endUTC } = getISTDayRange(dateStr);
+    // Query all entries for yesterday
+    const entries = await db.collection('diet_entries').find({ date: { $gte: startUTC, $lte: endUTC } }).toArray();
+    // Map by category
+    const catMap = {};
+    entries.forEach(e => { catMap[e.category] = Number(e.amount) || 0; });
+    // Find missing/incomplete categories
+    const missing = DAILY_REQUIREMENTS.filter(req => {
+      const amt = catMap[req.category] || 0;
+      return amt < req.amount;
+    });
+    if (missing.length > 0) {
+      // Placeholder for WhatsApp send
+      const missingList = missing.map(m => `${m.category} (${catMap[m.category] || 0}/${m.amount} ${m.unit})`).join(', ');
+      const message = `Reminder: You have not completed your diet entries for yesterday (${dateStr}). Missing or incomplete: ${missingList}`;
+      console.log(`[WhatsApp] To: ${userPhone} | Message: ${message}`);
+      // Send push notification
+      await sendPushToAll({
+        title: 'Diet Reminder',
+        body: message
+      });
+      res.json({ success: true, sent: true, message });
+    } else {
+      res.json({ success: true, sent: false, message: 'All entries complete for yesterday.' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
+
+// --- Web Push Setup ---
+webpush.setVapidDetails(
+  'mailto:your@email.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+let pushSubscriptions = [];
+
+
+app.get('/api/vapid-public-key', (req, res) => {
+  res.send(process.env.VAPID_PUBLIC_KEY);
+});
+
+app.post('/api/save-subscription', (req, res) => {
+  pushSubscriptions.push(req.body);
+  res.json({ success: true });
+});
+
+// Helper to send push notification to all subscribers
+async function sendPushToAll(payload) {
+  for (const sub of pushSubscriptions) {
+    try {
+      await webpush.sendNotification(sub, JSON.stringify(payload));
+    } catch (e) {
+      // Remove invalid subscriptions in production
+      console.error('Push error:', e);
+    }
+  }
+}
 
 connectToMongoDB().then(() => {
   app.listen(port, () => {

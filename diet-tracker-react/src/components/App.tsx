@@ -11,6 +11,7 @@ import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
 import LabReports from './LabReports';
 import { CloudDone, CloudOff } from '@mui/icons-material';
+import { urlBase64ToUint8Array } from '../pushUtils';
 
 const API_BASE_URL = '/api';
 
@@ -249,6 +250,35 @@ export function App() {
     return completions.reduce((sum, val) => sum + val, 0) / entries.length;
   };
 
+  async function subscribeUserToPush() {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      alert('Please enable notifications!');
+      return;
+    }
+    // Get public VAPID key from backend
+    const resp = await fetch('/api/vapid-public-key');
+    let vapidPublicKey = await resp.text();
+    vapidPublicKey = vapidPublicKey.trim(); // Remove whitespace/newlines
+    console.log('VAPID public key (before decode):', JSON.stringify(vapidPublicKey));
+    const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: convertedVapidKey
+    });
+
+    // Send subscription to backend
+    await fetch('/api/save-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription)
+    });
+    alert('Push subscription successful!');
+  }
+
   return (
     <BrowserRouter>
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -388,6 +418,7 @@ export function App() {
           <Route path="/history-table" element={<DietHistoryTable />} />
           <Route path="/lab-reports" element={<LabReports />} />
         </Routes>
+        <Button onClick={subscribeUserToPush}>Enable Push Notifications</Button>
       </Container>
     </BrowserRouter>
   );
