@@ -468,7 +468,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dietmate MCP Server")
     parser.add_argument("--http", action="store_true", help="Run as HTTP server instead of stdio")
     parser.add_argument("--host", default="0.0.0.0", help="HTTP host (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=8001, help="HTTP port (default: 8001)")
+    # Render injects $PORT; fall back to 8001 for local dev
+    default_port = int(os.getenv("PORT", "8001"))
+    parser.add_argument("--port", type=int, default=default_port, help="HTTP port (default: $PORT or 8001)")
     args = parser.parse_args()
 
     if args.http:
