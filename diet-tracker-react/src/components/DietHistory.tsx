@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Box, Typography, CircularProgress, MenuItem, Select, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
-import { DAILY_REQUIREMENTS } from './App';
+import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();

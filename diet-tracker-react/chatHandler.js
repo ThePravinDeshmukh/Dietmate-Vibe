@@ -220,6 +220,10 @@ export async function handleChat(req, res, db) {
     return res.status(503).json({ error: 'Chat assistant unavailable: OPENAI_API_KEY not configured' });
   }
 
+  if (!db) {
+    return res.status(503).json({ error: 'Database not ready, please try again' });
+  }
+
   const { message, date } = req.body;
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message is required' });
