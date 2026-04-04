@@ -10,6 +10,7 @@ import webpush from 'web-push';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DAILY_REQUIREMENTS } from './shared/requirements.js';
+import { handleChat } from './chatHandler.js';
 
 dotenv.config();
 
@@ -376,6 +377,9 @@ app.get('/api/entries/batch/:start/:end', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Chat assistant
+app.post('/api/chat', (req, res) => handleChat(req, res, db));
 
 // --- Ping endpoint for health check ---
 app.get('/api/ping', (req, res) => {
