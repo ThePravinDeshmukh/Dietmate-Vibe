@@ -87,7 +87,7 @@ function getCurrentTimeTargetPct() {
     { hour: 19, minute: 30, pct: 0.85 },
     { hour: 21, minute: 0,  pct: 1.0  }
   ];
-  const now = new Date();
+  const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
   const mins = now.getHours() * 60 + now.getMinutes();
   for (const m of milestones) {
     if (mins < m.hour * 60 + m.minute) return m.pct;
@@ -225,13 +225,13 @@ export async function handleChat(req, res, db) {
     return res.status(400).json({ error: 'message is required' });
   }
 
-  const today = date || new Date().toISOString().slice(0, 10);
+  const today = date || new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   // Load last 20 messages from chat_history (oldest first)
   let history = [];
   try {
     const docs = await db.collection('chat_history')
-      .find({})
+      .find({ sessionDate: today })
       .sort({ timestamp: -1 })
       .limit(20)
       .toArray();
