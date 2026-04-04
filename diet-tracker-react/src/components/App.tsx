@@ -227,7 +227,7 @@ export function App() {
       { hour: 19, minute: 30, pct: 0.85 }, // 19:30 85%
       { hour: 21, minute: 0, pct: 1.0 }    // 21:00 100%
     ];
-    const istNow = new Date(now.getTime());
+    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
     const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
     let targetPct = 1.0; // Default to 100%
     for (const m of milestones) {

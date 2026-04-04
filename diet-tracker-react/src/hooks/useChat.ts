@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -8,6 +8,10 @@ export interface ChatMessage {
 export function useChat(date: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setMessages([]);
+  }, [date]);
 
   const sendMessage = useCallback(async (content: string) => {
     setMessages(prev => [...prev, { role: 'user', content }]);
