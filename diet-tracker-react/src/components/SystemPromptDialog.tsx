@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress, Alert
 } from '@mui/material';
-import ReactMarkdown from 'react-markdown';
 
 interface SystemPromptDialogProps {
   open: boolean;
