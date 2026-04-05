@@ -10,7 +10,9 @@
       "Bash(git commit:*)",
       "Bash(node:*)",
       "Bash(npx tsc:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyAyDwfd4NzceLYDRpL4gE4lrmHjUiFg5MU\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(m['name']\\) for m in data['models'] if 'generateContent' in m.get\\('supportedGenerationMethods',[]\\)]\")"
     ]
   }
 }
