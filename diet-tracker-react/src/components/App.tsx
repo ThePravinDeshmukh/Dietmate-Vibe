@@ -32,10 +32,10 @@ export function App() {
   const [now, setNow] = useState(new Date());
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const [slidersOpen, setSlidersOpen] = useState(false);
   const dateStr = formatDateLocal(selectedDate);
-  const { messages: chatMessages, sendMessage, loading: chatLoading } = useChat(dateStr);
+  const { messages: chatMessages, sendMessage, loading: chatLoading, models: chatModels, selectedModel, setSelectedModel } = useChat(dateStr, () => loadDailyProgress(selectedDate));
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
@@ -381,6 +381,9 @@ export function App() {
                     onSendMessage={sendMessage}
                     loading={chatLoading}
                     onClose={() => setChatOpen(false)}
+                    models={chatModels}
+                    selectedModel={selectedModel}
+                    onModelChange={setSelectedModel}
                   />
                 )}
 

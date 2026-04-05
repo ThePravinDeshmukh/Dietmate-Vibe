@@ -10,7 +10,7 @@ import webpush from 'web-push';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DAILY_REQUIREMENTS } from './shared/requirements.js';
-import { handleChat } from './chatHandler.js';
+import { handleChat, listModels, buildSystemPrompt } from './chatHandler.js';
 
 dotenv.config();
 
@@ -379,7 +379,15 @@ app.get('/api/entries/batch/:start/:end', async (req, res) => {
 });
 
 // Chat assistant
+app.get('/api/chat/models', listModels);
 app.post('/api/chat', (req, res) => handleChat(req, res, db));
+app.get('/api/chat/system-prompt', (req, res) => {
+  try {
+    res.json({ prompt: buildSystemPrompt() });
+  } catch (e) {
+    res.status(503).json({ error: 'System prompt unavailable' });
+  }
+});
 
 // --- Ping endpoint for health check ---
 app.get('/api/ping', (req, res) => {

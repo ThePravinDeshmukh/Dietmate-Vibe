@@ -5,9 +5,31 @@ export interface ChatMessage {
   content: string;
 }
 
-export function useChat(date: string) {
+export interface ChatModel {
+  id: string;
+  displayName: string;
+}
+
+export function useChat(date: string, onResponse?: () => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [models, setModels] = useState<ChatModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState('gemini-flash-lite-latest');
+
+  useEffect(() => {
+    fetch('/api/chat/models')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.models?.length) {
+          setModels(data.models);
+          // Keep default if it exists in the list, otherwise pick first
+          setSelectedModel(prev =>
+            data.models.find((m: ChatModel) => m.id === prev) ? prev : data.models[0].id
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setMessages([]);
@@ -21,13 +43,14 @@ export function useChat(date: string) {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, date })
+        body: JSON.stringify({ message: content, date, model: selectedModel })
       });
 
       if (!res.ok) throw new Error('Assistant unavailable');
 
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      onResponse?.();
     } catch {
       setMessages(prev => [
         ...prev,
@@ -36,7 +59,7 @@ export function useChat(date: string) {
     } finally {
       setLoading(false);
     }
-  }, [date]);
+  }, [date, selectedModel, onResponse]);
 
-  return { messages, sendMessage, loading };
+  return { messages, sendMessage, loading, models, selectedModel, setSelectedModel };
 }

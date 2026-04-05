@@ -1,68 +1,56 @@
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { DAILY_REQUIREMENTS } from './shared/requirements.js';
+import { FOOD_EXCHANGES } from './shared/foodExchanges.js';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// ── Tool definitions sent to OpenAI ──────────────────────────────────────────
+// ── Tool definitions ──────────────────────────────────────────────────────────
 
-const tools = [
+const functionDeclarations = [
   {
-    type: 'function',
-    function: {
-      name: 'get_diet_entries',
-      description: 'Get all diet entries logged for a specific date',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'Date in YYYY-MM-DD format (IST)' }
-        },
-        required: ['date']
-      }
+    name: 'get_diet_entries',
+    description: 'Get all diet entries logged for a specific date',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        date: { type: 'STRING', description: 'Date in YYYY-MM-DD format (IST)' }
+      },
+      required: ['date']
     }
   },
   {
-    type: 'function',
-    function: {
-      name: 'update_diet_entry',
-      description: 'Set the logged amount for a diet category on a specific date. Amount replaces the current value (it is not additive).',
-      parameters: {
-        type: 'object',
-        properties: {
-          category: { type: 'string', description: 'Food category name, e.g. "cereal", "legumes", "soy milk"' },
-          amount: { type: 'number', description: 'Amount to set (not add). Must be >= 0.' },
-          date: { type: 'string', description: 'Date in YYYY-MM-DD format (IST)' }
-        },
-        required: ['category', 'amount', 'date']
-      }
+    name: 'update_diet_entry',
+    description: 'Set the logged amount for a diet category on a specific date. Amount replaces the current value (it is not additive).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        category: { type: 'STRING', description: 'Food category name, e.g. "cereal", "legumes", "soy milk"' },
+        amount: { type: 'NUMBER', description: 'Amount to set (not add). Must be >= 0.' },
+        date: { type: 'STRING', description: 'Date in YYYY-MM-DD format (IST)' }
+      },
+      required: ['category', 'amount', 'date']
     }
   },
   {
-    type: 'function',
-    function: {
-      name: 'get_remaining_diet',
-      description: 'Get remaining diet requirements for a specific date',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'Date in YYYY-MM-DD format (IST)' }
-        },
-        required: ['date']
-      }
+    name: 'get_remaining_diet',
+    description: 'Get remaining diet requirements for a specific date',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        date: { type: 'STRING', description: 'Date in YYYY-MM-DD format (IST)' }
+      },
+      required: ['date']
     }
   },
   {
-    type: 'function',
-    function: {
-      name: 'get_diet_history',
-      description: 'Get daily overall completion percentages for a date range',
-      parameters: {
-        type: 'object',
-        properties: {
-          start: { type: 'string', description: 'Start date YYYY-MM-DD (IST)' },
-          end:   { type: 'string', description: 'End date YYYY-MM-DD (IST)' }
-        },
-        required: ['start', 'end']
-      }
+    name: 'get_diet_history',
+    description: 'Get daily overall completion percentages for a date range',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        start: { type: 'STRING', description: 'Start date YYYY-MM-DD (IST)' },
+        end:   { type: 'STRING', description: 'End date YYYY-MM-DD (IST)' }
+      },
+      required: ['start', 'end']
     }
   }
 ];
@@ -95,7 +83,18 @@ function getCurrentTimeTargetPct() {
   return 1.0;
 }
 
-function buildSystemPrompt() {
+function buildFoodExchangeList() {
+  return Object.entries(FOOD_EXCHANGES)
+    .map(([category, items]) => {
+      const itemList = items
+        .map(i => `${i.name} (${i.gramsPerExchange}${i.unit || 'g'}/exchange)`)
+        .join(', ');
+      return `${category}: ${itemList}`;
+    })
+    .join('\n');
+}
+
+export function buildSystemPrompt() {
   const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
   const dateStr = ist.toISOString().slice(0, 10);
   const targetPct = Math.round(getCurrentTimeTargetPct() * 100);
@@ -111,14 +110,26 @@ DIETARY CONSTRAINTS (never suggest these):
 - The child uses special PA formula and Cal-C formula — these are medical foods, not optional
 - Isoleucine and Valine are prescribed supplements taken as powders, not food sources
 
+TEXTURE & SWALLOWING CONSTRAINTS (critical — child has swallowing difficulty and is prone to vomiting):
+- Food must be thin, smooth, or semi-liquid — easy to gulp without chewing effort
+- Avoid thick, sticky, dense, or dry textures: thick porridge, dry rotis, sticky rice, raw hard fruits/vegetables
+- Prefer: thin rice kanji, diluted khichdi, thin dal, mashed vegetables with water, thin fruit purees, juices, soups
+- Cooked/softened forms are always preferred over raw: soft-cooked rice over raw, pureed fruit over whole fruit
+- When suggesting food items from the exchange list, default to their cooked/softened/pureed form
+- Never suggest foods that require significant chewing or that clump together in the mouth
+
 DAILY REQUIREMENTS:
 ${reqList}
 
 CURRENT DATE: ${dateStr} (IST)
 CURRENT TIME TARGET: ${targetPct}% of daily diet should be completed by now
 
+FOOD EXCHANGE DATA (grams per 1 exchange, from dietitian charts):
+${buildFoodExchangeList()}
+
 Rules:
 - When recording diet, confirm what was logged and show remaining amount for that category.
+- When suggesting remaining diet or recipes, ALWAYS use the food exchange data above. Calculate actual grams: grams = exchanges_remaining × grams_per_exchange. List 3-5 practical food options per category with their weight in grams. Example: "5 cereal exchanges = Rice 36.5g OR Pohe 43.5g OR Ragi 43.5g OR Jowar 39g".
 - When suggesting recipes, only use PA-safe ingredients from the allowed food categories above.
 - Keep responses concise — this is a mobile-friendly chat interface.
 - If asked to log an amount, use update_diet_entry. Do not ask for confirmation before writing.`;
@@ -215,23 +226,43 @@ async function executeTool(name, args, db) {
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
+export async function listModels(_req, res) {
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(503).json({ error: 'GEMINI_API_KEY not configured' });
+  }
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const models = (data.models || [])
+      .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.includes('gemini'))
+      .map(m => ({ id: m.name.replace('models/', ''), displayName: m.displayName || m.name.replace('models/', '') }));
+    res.json({ models });
+  } catch (e) {
+    res.status(503).json({ error: e.message });
+  }
+}
+
 export async function handleChat(req, res, db) {
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(503).json({ error: 'Chat assistant unavailable: OPENAI_API_KEY not configured' });
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(503).json({ error: 'Chat assistant unavailable: GEMINI_API_KEY not configured' });
   }
 
   if (!db) {
     return res.status(503).json({ error: 'Database not ready, please try again' });
   }
 
-  const { message, date } = req.body;
+  const { message, date, model: requestedModel } = req.body;
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message is required' });
   }
 
   const today = date || new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const selectedModel = typeof requestedModel === 'string' && requestedModel ? requestedModel : 'gemini-flash-lite-latest';
 
-  // Load last 20 messages from chat_history (oldest first)
+  // Load last 20 messages from chat_history as Gemini history format
   let history = [];
   try {
     const docs = await db.collection('chat_history')
@@ -239,68 +270,60 @@ export async function handleChat(req, res, db) {
       .sort({ timestamp: -1 })
       .limit(20)
       .toArray();
-    history = docs.reverse().map(d => ({ role: d.role, content: d.content }));
+    history = docs.reverse().map(d => ({
+      role: d.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: d.content }]
+    }));
+    // Gemini requires history to start with 'user'
+    while (history.length > 0 && history[0].role !== 'user') history.shift();
   } catch (_) {
-    // fall through with empty history — chat still works
+    // fall through with empty history
   }
 
-  const messages = [
-    { role: 'system', content: buildSystemPrompt() },
-    ...history,
-    { role: 'user', content: message }
-  ];
-
   try {
-    // OpenAI function-calling loop (max 5 rounds)
-    let response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages,
-      tools,
-      tool_choice: 'auto'
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: selectedModel,
+      tools: [{ functionDeclarations }],
+      systemInstruction: buildSystemPrompt()
     });
 
-    let assistantMessage = response.choices[0].message;
+    const chat = model.startChat({ history });
+    let result = await chat.sendMessage(message);
 
-    for (let round = 0; round < 5 && assistantMessage.tool_calls?.length; round++) {
-      messages.push(assistantMessage);
-
-      for (const toolCall of assistantMessage.tool_calls) {
-        let result;
-        try {
-          const args = JSON.parse(toolCall.function.arguments);
-          result = await executeTool(toolCall.function.name, args, db);
-        } catch (e) {
-          result = { error: e.message };
-        }
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result)
-        });
-      }
-
-      response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages,
-        tools,
-        tool_choice: 'auto'
-      });
-      assistantMessage = response.choices[0].message;
+    // Function calling loop (max 5 rounds)
+    for (let round = 0; round < 5 && result.response.functionCalls()?.length; round++) {
+      const calls = result.response.functionCalls();
+      const responses = await Promise.all(
+        calls.map(async (call) => {
+          let response;
+          try {
+            response = await executeTool(call.name, call.args, db);
+          } catch (e) {
+            response = { error: e.message };
+          }
+          const payload = Array.isArray(response) ? { items: response } : response;
+          return { functionResponse: { name: call.name, response: payload } };
+        })
+      );
+      result = await chat.sendMessage(responses);
     }
 
-    const reply = assistantMessage.content || 'Done.';
+    const reply = result.response.text() || 'Done.';
 
     // Save user + assistant messages to chat_history (non-fatal if fails)
     try {
+      const userTs = new Date();
+      const assistantTs = new Date(userTs.getTime() + 1);
       await db.collection('chat_history').insertMany([
-        { role: 'user',      content: message, sessionDate: today, timestamp: new Date() },
-        { role: 'assistant', content: reply,   sessionDate: today, timestamp: new Date() }
+        { role: 'user',      content: message, sessionDate: today, timestamp: userTs },
+        { role: 'assistant', content: reply,   sessionDate: today, timestamp: assistantTs }
       ]);
     } catch (_) {}
 
     res.json({ reply });
   } catch (e) {
-    console.error('OpenAI error:', e.message);
+    console.error('Gemini error:', e.message);
     res.status(503).json({ error: 'Assistant unavailable, please try again' });
   }
 }

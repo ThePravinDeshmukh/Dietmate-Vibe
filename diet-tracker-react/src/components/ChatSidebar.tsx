@@ -1,21 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Box, Paper, Typography, TextField, IconButton,
-  CircularProgress, Stack
+  CircularProgress, Stack, Select, MenuItem, FormControl
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
-import type { ChatMessage } from '../hooks/useChat';
+import InfoIcon from '@mui/icons-material/Info';
+import ReactMarkdown from 'react-markdown';
+import { SystemPromptDialog } from './SystemPromptDialog';
+import type { ChatMessage, ChatModel } from '../hooks/useChat';
 
 interface ChatSidebarProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   loading: boolean;
   onClose: () => void;
+  models: ChatModel[];
+  selectedModel: string;
+  onModelChange: (model: string) => void;
 }
 
-export function ChatSidebar({ messages, onSendMessage, loading, onClose }: ChatSidebarProps) {
+export function ChatSidebar({ messages, onSendMessage, loading, onClose, models, selectedModel, onModelChange }: ChatSidebarProps) {
   const [input, setInput] = useState('');
+  const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,12 +62,34 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose }: ChatS
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}
+        sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}
       >
         <Typography variant="subtitle1" fontWeight="bold">Diet Assistant</Typography>
-        <IconButton size="small" onClick={onClose} aria-label="close chat">
-          <CloseIcon fontSize="small" />
-        </IconButton>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          {models.length > 0 && (
+            <FormControl size="small">
+              <Select
+                value={selectedModel}
+                onChange={e => onModelChange(e.target.value)}
+                variant="standard"
+                disableUnderline
+                sx={{ fontSize: 11, color: 'text.secondary', minWidth: 80 }}
+              >
+                {models.map(m => (
+                  <MenuItem key={m.id} value={m.id} sx={{ fontSize: 12 }}>
+                    {m.displayName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          <IconButton size="small" onClick={() => setShowPrompt(true)} aria-label="view system prompt" title="View system prompt">
+            <InfoIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={onClose} aria-label="close chat">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Stack>
       </Stack>
 
       {/* Message list */}
@@ -83,9 +112,26 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose }: ChatS
               borderRadius: 2,
             }}
           >
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-              {msg.content}
-            </Typography>
+            {msg.role === 'user' ? (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {msg.content}
+              </Typography>
+            ) : (
+              <Box
+                sx={{
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                  '& p': { m: 0, mb: 0.5 },
+                  '& p:last-child': { mb: 0 },
+                  '& ul, & ol': { mt: 0.5, mb: 0.5, pl: 2.5 },
+                  '& li': { mb: 0.25 },
+                  '& strong': { fontWeight: 600 },
+                  '& code': { fontFamily: 'monospace', fontSize: 12, bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 },
+                }}
+              >
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+              </Box>
+            )}
           </Box>
         ))}
         {loading && (
@@ -122,6 +168,7 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose }: ChatS
           <SendIcon />
         </IconButton>
       </Stack>
+      <SystemPromptDialog open={showPrompt} onClose={() => setShowPrompt(false)} />
     </Paper>
   );
 }
