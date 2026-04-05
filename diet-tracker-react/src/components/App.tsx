@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { Box, Container, Stack, Paper, Typography, Snackbar, Alert, Button, LinearProgress, Chip, CircularProgress } from '@mui/material';
+import {
+  Box, Container, Stack, Paper, Typography, Snackbar, Alert,
+  Button, LinearProgress, Chip, CircularProgress, Dialog,
+  DialogTitle, DialogContent, DialogActions, IconButton, Tooltip
+} from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import ChatIcon from '@mui/icons-material/Chat';
+import EditIcon from '@mui/icons-material/Edit';
 import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
 import { ProgressChart } from './ProgressChart';
-import Tooltip from '@mui/material/Tooltip';
 import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
 import LabReports from './LabReports';
 import { CloudDone, CloudOff } from '@mui/icons-material';
 import { urlBase64ToUint8Array } from '../pushUtils';
+import { ChatSidebar } from './ChatSidebar';
+import { useChat } from '../hooks/useChat';
+import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
 
 const API_BASE_URL = '/api';
 
@@ -24,6 +32,10 @@ export function App() {
   const [now, setNow] = useState(new Date());
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [chatOpen, setChatOpen] = useState(true);
+  const [slidersOpen, setSlidersOpen] = useState(false);
+  const dateStr = formatDateLocal(selectedDate);
+  const { messages: chatMessages, sendMessage, loading: chatLoading, models: chatModels, selectedModel, setSelectedModel } = useChat(dateStr, () => loadDailyProgress(selectedDate));
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
@@ -216,7 +228,7 @@ export function App() {
       { hour: 19, minute: 30, pct: 0.85 }, // 19:30 85%
       { hour: 21, minute: 0, pct: 1.0 }    // 21:00 100%
     ];
-    const istNow = new Date(now.getTime());
+    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
     const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
     let targetPct = 1.0; // Default to 100%
     for (const m of milestones) {
@@ -303,114 +315,157 @@ export function App() {
         <Routes>
           <Route path="/" element={
             <>
-              {/* --- Top bar: DatePicker and action buttons in a row --- */}
+              {/* ── Sticky toolbar ── */}
               <Stack
                 direction="row"
                 spacing={1}
-                alignItems="flex-start"
-                justifyContent="flex-start"
+                alignItems="center"
                 flexWrap="wrap"
                 sx={{
-                  mb: 3,
+                  mb: 2,
                   position: 'sticky',
                   top: 0,
                   zIndex: 1100,
                   bgcolor: 'background.paper',
-                  py: 2,
+                  py: 1.5,
                   borderBottom: 1,
                   borderColor: 'divider',
                 }}
               >
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                   <DatePicker
-                    label="Select Date"
+                    label="Date"
                     value={selectedDate}
                     onChange={(date) => date && setSelectedDate(date)}
-                    slotProps={{ textField: { size: 'small', sx: { width: 140, mr: 1, mb: { xs: 1, sm: 0 } } } }}
+                    slotProps={{ textField: { size: 'small', sx: { width: 140 } } }}
                     disableFuture
                   />
                 </LocalizationProvider>
                 <Tooltip title="Reset All Values">
-                  <Button variant="outlined" color="secondary" onClick={handleResetAll} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Reset</Button>
+                  <Button variant="outlined" color="secondary" onClick={handleResetAll} size="small">Reset</Button>
                 </Tooltip>
                 <Tooltip title="Copy from Yesterday">
-                  <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday} sx={{ minWidth: 64, mr: 1, mb: { xs: 1, sm: 0 } }}>Copy</Button>
+                  <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday} size="small">Copy</Button>
                 </Tooltip>
                 <Tooltip title="Save All Changes">
-                  <Button variant="contained" color="primary" onClick={handleSaveAll} sx={{ minWidth: 64, mb: { xs: 1, sm: 0 } }}>Save</Button>
+                  <Button variant="contained" color="primary" onClick={handleSaveAll} size="small">Save</Button>
+                </Tooltip>
+                <Tooltip title="Edit Diet Entries">
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    onClick={() => setSlidersOpen(true)}
+                    size="small"
+                  >
+                    Edit Diet
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Diet Assistant">
+                  <IconButton
+                    color={chatOpen ? 'primary' : 'default'}
+                    onClick={() => setChatOpen(o => !o)}
+                    aria-label="toggle chat"
+                  >
+                    <ChatIcon />
+                  </IconButton>
                 </Tooltip>
               </Stack>
-              {/* --- New: Summary Section --- */}
-              <Paper sx={{ p: 2, mb: 2 }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="subtitle1">Overall Completion</Typography>
-                    <LinearProgress variant="determinate" value={dailyProgress?.overallCompletion || 0} sx={{ height: 10, borderRadius: 5, mb: 1 }} />
-                    <Typography variant="body2">{Math.round(dailyProgress?.overallCompletion || 0)}%</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle1">Target for Current Time</Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Chip
-                        color="primary"
-                        label={`Expected: ${Math.round(getCurrentTimeTargetPct() * 100)}% of daily diet`}
-                      />
+
+              {/* ── Main content row ── */}
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
+
+                {/* Left: Chat Sidebar */}
+                {chatOpen && (
+                  <ChatSidebar
+                    messages={chatMessages}
+                    onSendMessage={sendMessage}
+                    loading={chatLoading}
+                    onClose={() => setChatOpen(false)}
+                    models={chatModels}
+                    selectedModel={selectedModel}
+                    onModelChange={setSelectedModel}
+                  />
+                )}
+
+                {/* Right: Summary + Chart */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {/* Summary */}
+                  <Paper sx={{ p: 2, mb: 2 }}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle1">Overall Completion</Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={dailyProgress?.overallCompletion || 0}
+                          sx={{ height: 10, borderRadius: 5, mb: 1 }}
+                        />
+                        <Typography variant="body2">{Math.round(dailyProgress?.overallCompletion || 0)}%</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle1">Target for Current Time</Typography>
+                        <Chip
+                          color="primary"
+                          label={`Expected: ${Math.round(getCurrentTimeTargetPct() * 100)}% of daily diet`}
+                        />
+                      </Box>
                     </Stack>
-                  </Box>
-                </Stack>
-              </Paper>
+                  </Paper>
 
-              {/* --- New: Smart Suggestions --- */}
-              <Paper sx={{ p: 2, mb: 2 }}>
-                <Typography variant="subtitle1" gutterBottom>Smart Suggestions</Typography>
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {getSmartSuggestions(nutrients).map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
-              </Paper>
-
-              {/* --- Existing controls and sliders --- */}
-              {loading ? (
-                <Typography>Loading...</Typography>
-              ) : (
-                <Box sx={{ flexGrow: 1 }}>
-                  <Stack spacing={3}>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                      <Paper sx={{ p: 2, flex: 2 }}>
-                        {/* --- New: Save status indicator --- */}
-                        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                          {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving..." color="info" variant="outlined" />}
-                          {saveStatus === 'saved' && <Chip label="All changes saved" color="success" variant="outlined" />}
-                          {saveStatus === 'error' && <Chip label="Save failed" color="error" variant="outlined" />}
-                        </Stack>
-                        {nutrients.map((nutrient) => (
-                          <Box key={nutrient.category} sx={{ mb: 2 }}>
-                            <NutrientSlider
-                              category={nutrient.category}
-                              amount={nutrient.amount}
-                              maxAmount={nutrient.required}
-                              unit={nutrient.unit}
-                              onChange={(value) => handleNutrientChange(nutrient.category, value)}
-                            />
-                          </Box>
-                        ))}
-                      </Paper>
-
-                      <Paper sx={{ p: 2, flex: 1 }}>
-                        <ProgressChart nutrients={nutrients} />
-                      </Paper>
-                    </Stack>
+                  {/* Save status */}
+                  <Stack direction="row" sx={{ mb: 1 }}>
+                    {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving..." color="info" variant="outlined" />}
+                    {saveStatus === 'saved'  && <Chip label="All changes saved" color="success" variant="outlined" />}
+                    {saveStatus === 'error'  && <Chip label="Save failed" color="error" variant="outlined" />}
                   </Stack>
-                </Box>
-              )}
 
-              <Snackbar 
-                open={!!error} 
-                autoHideDuration={6000} 
-                onClose={() => setError(null)}
-              >
-                <Alert severity="error" onClose={() => setError(null)}>
-                  {error}
-                </Alert>
+                  {/* Smart Suggestions */}
+                  <Paper sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom>Smart Suggestions</Typography>
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {getSmartSuggestions(nutrients).map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </Paper>
+
+                  {/* Chart */}
+                  {!loading && (
+                    <Paper sx={{ p: 2 }}>
+                      <ProgressChart nutrients={nutrients} />
+                    </Paper>
+                  )}
+                  {loading && <Typography>Loading...</Typography>}
+                </Box>
+              </Stack>
+
+              {/* ── Sliders Modal ── */}
+              <Dialog open={slidersOpen} onClose={() => setSlidersOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Edit Diet Entries</DialogTitle>
+                <DialogContent>
+                  <Stack direction="row" sx={{ mb: 2 }}>
+                    {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving..." color="info" variant="outlined" />}
+                    {saveStatus === 'saved'  && <Chip label="All changes saved" color="success" variant="outlined" />}
+                    {saveStatus === 'error'  && <Chip label="Save failed" color="error" variant="outlined" />}
+                  </Stack>
+                  {nutrients.map((nutrient) => (
+                    <Box key={nutrient.category} sx={{ mb: 2 }}>
+                      <NutrientSlider
+                        category={nutrient.category}
+                        amount={nutrient.amount}
+                        maxAmount={nutrient.required}
+                        unit={nutrient.unit}
+                        onChange={(value) => handleNutrientChange(nutrient.category, value)}
+                      />
+                    </Box>
+                  ))}
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={handleResetAll} color="secondary">Reset All</Button>
+                  <Button onClick={handleSaveAll} variant="contained">Save All</Button>
+                  <Button onClick={() => setSlidersOpen(false)}>Close</Button>
+                </DialogActions>
+              </Dialog>
+
+              <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+                <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>
               </Snackbar>
             </>
           } />
@@ -432,26 +487,3 @@ function formatDateLocal(dateObj: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export type DailyRequirement = {
-  category: string;
-  amount: number;
-  unit: string;
-};
-
-export const DAILY_REQUIREMENTS: DailyRequirement[] = [
-  { category: "cereal", amount: 13, unit: "exchange" },
-  { category: "dried fruit", amount: 1, unit: "exchange" },
-  { category: "fresh fruit", amount: 3, unit: "exchange" },
-  { category: "legumes", amount: 3, unit: "exchange" },
-  { category: "other vegetables", amount: 3, unit: "exchange" },
-  { category: "root vegetables", amount: 2, unit: "exchange" },
-  { category: "free group", amount: 3, unit: "exchange" },
-  { category: "jaggery", amount: 20, unit: "grams" },
-  { category: "soy milk", amount: 120, unit: "ml" },
-  { category: "sugar", amount: 10, unit: "grams" },
-  { category: "oil ghee", amount: 30, unit: "grams" },
-  { category: "pa formula", amount: 32, unit: "grams" },
-  { category: "cal-c formula", amount: 24, unit: "grams" },
-  { category: "isoleucine", amount: 3, unit: "grams" },
-  { category: "valine", amount: 4, unit: "grams" }
-];

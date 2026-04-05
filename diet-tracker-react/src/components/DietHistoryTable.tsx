@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, MenuItem, Select, FormControl, InputLabel, CircularProgress, TableFooter } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
-import { DAILY_REQUIREMENTS, type DailyRequirement } from './App';
+import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
+import type { DailyRequirement } from '../types';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 

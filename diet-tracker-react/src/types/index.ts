@@ -22,6 +22,7 @@ export interface DailyProgress {
 }
 
 export interface DailyRequirement {
+  category: string;
   amount: number;
   unit: string;
 }
