@@ -439,14 +439,14 @@ export function App() {
               {/* ── Sliders Modal ── */}
               <Dialog open={slidersOpen} onClose={() => setSlidersOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Edit Diet Entries</DialogTitle>
-                <DialogContent>
-                  <Stack direction="row" sx={{ mb: 2 }}>
+                <DialogContent sx={{ py: 1, px: 2 }}>
+                  <Stack direction="row" sx={{ mb: 1 }}>
                     {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving..." color="info" variant="outlined" />}
                     {saveStatus === 'saved'  && <Chip label="All changes saved" color="success" variant="outlined" />}
                     {saveStatus === 'error'  && <Chip label="Save failed" color="error" variant="outlined" />}
                   </Stack>
                   {nutrients.map((nutrient) => (
-                    <Box key={nutrient.category} sx={{ mb: 2 }}>
+                    <Box key={nutrient.category} sx={{ mb: 0.5 }}>
                       <NutrientSlider
                         category={nutrient.category}
                         amount={nutrient.amount}

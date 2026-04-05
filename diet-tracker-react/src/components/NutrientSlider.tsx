@@ -26,10 +26,10 @@ export function NutrientSlider({
   return (
     <SliderContainer>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="body1" fontWeight="bold">
+        <Typography variant="body2" fontWeight="bold">
           {statusEmoji} {category}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="caption" color="text.secondary">
           {amount.toFixed(1)}/{maxAmount} {unit}
         </Typography>
       </Box>
@@ -40,7 +40,8 @@ export function NutrientSlider({
         step={0.5}
         onChange={(_, value) => onChange(value as number)}
         sx={{
-          mt: 0, // Less margin above slider
+          mt: 0,
+          mb: 0,
           height: 3,
           '& .MuiSlider-track': {
             backgroundColor: completion >= 100 ? '#28a745' : '#1976d2',
