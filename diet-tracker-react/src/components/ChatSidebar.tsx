@@ -6,9 +6,14 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
 import InfoIcon from '@mui/icons-material/Info';
+import MicIcon from '@mui/icons-material/Mic';
+import MicOffIcon from '@mui/icons-material/MicOff';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import ReactMarkdown from 'react-markdown';
 import { SystemPromptDialog } from './SystemPromptDialog';
 import type { ChatMessage, ChatModel } from '../hooks/useChat';
+import { useVoice } from '../hooks/useVoice';
 
 interface ChatSidebarProps {
   messages: ChatMessage[];
@@ -25,13 +30,24 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose, models,
   const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const { isSupported, isListening, isSpeaking, isMuted, startListening, stopListening, speak, toggleMute, stopSpeaking } = useVoice();
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  // Auto-read last assistant message
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.role === 'assistant') {
+      speak(last.content);
+    }
+  }, [messages]); // speak is stable (useCallback), safe to omit from deps
+
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
+    stopSpeaking();
     onSendMessage(trimmed);
     setInput('');
   };
@@ -47,14 +63,14 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose, models,
     <Paper
       elevation={2}
       sx={{
-        width: 320,
-        minWidth: 280,
+        width: { xs: '100%', md: 420 },
+        minWidth: { xs: 0, md: 320 },
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
-        height: 'calc(100vh - 180px)',
-        position: 'sticky',
-        top: 80,
+        height: { xs: '60vh', md: 'calc(100vh - 180px)' },
+        position: { xs: 'static', md: 'sticky' },
+        top: { md: 80 },
       }}
     >
       {/* Header */}
@@ -85,6 +101,15 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose, models,
           )}
           <IconButton size="small" onClick={() => setShowPrompt(true)} aria-label="view system prompt" title="View system prompt">
             <InfoIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={toggleMute}
+            aria-label={isMuted ? 'unmute assistant voice' : 'mute assistant voice'}
+            title={isMuted ? 'Unmute voice' : 'Mute voice'}
+            sx={{ color: isSpeaking && !isMuted ? 'primary.main' : 'inherit' }}
+          >
+            {isMuted ? <VolumeOffIcon fontSize="small" /> : <VolumeUpIcon fontSize="small" />}
           </IconButton>
           <IconButton size="small" onClick={onClose} aria-label="close chat">
             <CloseIcon fontSize="small" />
@@ -159,6 +184,24 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose, models,
           multiline
           maxRows={3}
         />
+        {isSupported && (
+          <IconButton
+            onClick={isListening ? stopListening : () => startListening(setInput)}
+            aria-label={isListening ? 'stop listening' : 'start voice input'}
+            title={isListening ? 'Stop listening' : 'Speak a message'}
+            sx={{
+              color: isListening ? 'error.main' : 'inherit',
+              animation: isListening ? 'pulse 1s infinite' : 'none',
+              '@keyframes pulse': {
+                '0%': { opacity: 1 },
+                '50%': { opacity: 0.4 },
+                '100%': { opacity: 1 },
+              },
+            }}
+          >
+            {isListening ? <MicOffIcon /> : <MicIcon />}
+          </IconButton>
+        )}
         <IconButton
           color="primary"
           onClick={handleSend}
