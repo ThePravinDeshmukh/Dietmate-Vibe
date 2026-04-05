@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /d/Code/dietmate-vibe/diet-tracker-react/.env*)",
+      "Bash(npm install:*)",
+      "Bash(node --check server.js)",
+      "Bash(node --check chatHandler.js)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git:*)"
+    ]
+  }
+}
