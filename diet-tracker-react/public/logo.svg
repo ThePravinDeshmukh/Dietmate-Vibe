@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgGrad" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#43A047"/>
+      <stop offset="100%" stop-color="#1B5E20"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.3)"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="url(#bgGrad)"/>
+  <circle cx="100" cy="100" r="96" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="3"/>
+
+  <!-- Inner ring accent -->
+  <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Fork (left) -->
+  <g fill="rgba(255,255,255,0.88)">
+    <!-- Left tine -->
+    <rect x="30" y="42" width="3.5" height="36" rx="1.75"/>
+    <!-- Center tine -->
+    <rect x="38" y="42" width="3.5" height="36" rx="1.75"/>
+    <!-- Right tine -->
+    <rect x="46" y="42" width="3.5" height="36" rx="1.75"/>
+    <!-- Tine base connector -->
+    <rect x="30" y="75" width="19.5" height="5" rx="2.5"/>
+    <!-- Handle -->
+    <rect x="37" y="79" width="5.5" height="72" rx="2.75"/>
+  </g>
+
+  <!-- Spoon (right) -->
+  <g fill="rgba(255,255,255,0.88)">
+    <!-- Spoon bowl -->
+    <ellipse cx="162" cy="57" rx="11" ry="15"/>
+    <!-- Spoon neck + handle -->
+    <rect x="158.5" y="70" width="5.5" height="80" rx="2.75"/>
+  </g>
+
+  <!-- Plate shadow -->
+  <ellipse cx="100" cy="152" rx="41" ry="6" fill="rgba(0,0,0,0.18)"/>
+
+  <!-- Plate outer -->
+  <circle cx="100" cy="140" r="42" fill="white" filter="url(#shadow)"/>
+  <!-- Plate rim -->
+  <circle cx="100" cy="140" r="42" fill="none" stroke="#E0E0E0" stroke-width="2"/>
+  <!-- Plate inner -->
+  <circle cx="100" cy="140" r="35" fill="#FAFAFA"/>
+
+  <!-- Broccoli (green veggie) -->
+  <rect x="82" y="141" width="4" height="8" rx="2" fill="#388E3C"/>
+  <circle cx="84" cy="134" r="8" fill="#4CAF50"/>
+  <circle cx="78" cy="130" r="6" fill="#66BB6A"/>
+  <circle cx="90" cy="130" r="6" fill="#81C784"/>
+  <circle cx="84" cy="126" r="4.5" fill="#A5D6A7"/>
+
+  <!-- Carrot (orange) -->
+  <ellipse cx="116" cy="134" rx="6" ry="10" fill="#FF9800" transform="rotate(-10 116 134)"/>
+  <ellipse cx="116" cy="134" rx="4" ry="8" fill="#FFB74D" transform="rotate(-10 116 134)" opacity="0.5"/>
+  <path d="M112 124 Q116 119 120 124" fill="none" stroke="#558B2F" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Cherry tomato (red) -->
+  <circle cx="100" cy="153" r="8" fill="#E53935"/>
+  <circle cx="97" cy="150" r="2.5" fill="rgba(255,255,255,0.3)"/>
+  <path d="M97 145 Q100 141 103 145" fill="none" stroke="#558B2F" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Heart (top center) -->
+  <path d="M100 62
+    C100 54, 91 47, 84 53
+    C77 59, 81 68, 100 80
+    C119 68, 123 59, 116 53
+    C109 47, 100 54, 100 62Z"
+    fill="#E91E63"/>
+  <!-- Heart shine -->
+  <path d="M88 55 C86 52 85 57 87 59" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+</svg>

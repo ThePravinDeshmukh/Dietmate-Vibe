@@ -295,9 +295,17 @@ export function App() {
     <BrowserRouter>
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            IEM Vibe
-          </Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Box
+              component="img"
+              src="/logo.svg"
+              alt="IEM Vibe logo"
+              sx={{ width: 52, height: 52, flexShrink: 0 }}
+            />
+            <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 0 }}>
+              IEM Vibe
+            </Typography>
+          </Stack>
           <Chip
             icon={connectionStatus === 'online' ? <CloudDone sx={{ color: 'green' }} /> : <CloudOff sx={{ color: 'red' }} />}
             label={connectionStatus === 'online' ? 'Online' : 'Offline'}
