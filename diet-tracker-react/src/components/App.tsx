@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Stack, Paper, Typography, Snackbar, Alert,
   Button, LinearProgress, Chip, CircularProgress, Dialog,
-  DialogTitle, DialogContent, DialogActions, IconButton, Tooltip
+  DialogTitle, DialogContent, DialogActions, IconButton, Tooltip,
+  Tabs, Tab,
 } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import ChatIcon from '@mui/icons-material/Chat';
 import EditIcon from '@mui/icons-material/Edit';
+import { CloudDone, CloudOff } from '@mui/icons-material';
 import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
 import { ProgressChart } from './ProgressChart';
 import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
 import LabReports from './LabReports';
-import { CloudDone, CloudOff } from '@mui/icons-material';
 import { urlBase64ToUint8Array } from '../pushUtils';
 import { ChatSidebar } from './ChatSidebar';
 import { useChat } from '../hooks/useChat';
@@ -24,6 +25,16 @@ import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
 const API_BASE_URL = '/api';
 
 export function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
+
+function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [nutrients, setNutrients] = useState<NutrientEntry[]>([]);
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +53,7 @@ export function App() {
   }, [selectedDate]);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000 * 60); // update every minute
+    const timer = setInterval(() => setNow(new Date()), 1000 * 60);
     return () => clearInterval(timer);
   }, []);
 
@@ -57,7 +68,7 @@ export function App() {
       }
     };
     checkPing();
-    const interval = setInterval(checkPing, 10000); // every 10s
+    const interval = setInterval(checkPing, 10000);
     return () => { isMounted = false; clearInterval(interval); };
   }, []);
 
@@ -115,7 +126,6 @@ export function App() {
       );
       setNutrients(updatedNutrients);
 
-      // Update progress
       if (dailyProgress) {
         const updatedProgress = {
           ...dailyProgress,
@@ -125,13 +135,10 @@ export function App() {
         setDailyProgress(updatedProgress);
       }
 
-      // Save to database with correct date
       const dateStr = formatDateLocal(selectedDate);
       const response = await fetch(`${API_BASE_URL}/entries`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category, amount, date: dateStr })
       });
 
@@ -146,7 +153,6 @@ export function App() {
     }
   };
 
-  // Reset all values to 0
   const handleResetAll = async () => {
     try {
       const resetNutrients = nutrients.map(n => ({ ...n, amount: 0 }));
@@ -163,7 +169,6 @@ export function App() {
     }
   };
 
-  // Save all changes (batch update)
   const handleSaveAll = async () => {
     try {
       const dateStr = formatDateLocal(selectedDate);
@@ -185,25 +190,22 @@ export function App() {
     }
   };
 
-  // Copy from yesterday (placeholder)
   const handleCopyFromYesterday = () => {
     setError('Copy from Yesterday not implemented yet');
   };
 
-  // --- New: Calculate target for current time (IST, milestone-based) ---
   function getCurrentTimeTarget(entries: NutrientEntry[]) {
-    // Milestone schedule (IST)
     const milestones = [
-      { hour: 7, minute: 0, pct: 0.15 },    // 7:00  15%
-      { hour: 10, minute: 30, pct: 0.25 }, // 10:30 25%
-      { hour: 13, minute: 0, pct: 0.5 },   // 13:00 50%
-      { hour: 16, minute: 30, pct: 0.65 }, // 16:30 65%
-      { hour: 19, minute: 30, pct: 0.85 }, // 19:30 85%
-      { hour: 21, minute: 0, pct: 1.0 }    // 21:00 100%
+      { hour: 7, minute: 0, pct: 0.15 },
+      { hour: 10, minute: 30, pct: 0.25 },
+      { hour: 13, minute: 0, pct: 0.5 },
+      { hour: 16, minute: 30, pct: 0.65 },
+      { hour: 19, minute: 30, pct: 0.85 },
+      { hour: 21, minute: 0, pct: 1.0 }
     ];
     const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
     const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
-    let targetPct = 1.0; // Default to 100%
+    let targetPct = 1.0;
     for (const m of milestones) {
       const milestoneMinutes = m.hour * 60 + m.minute;
       if (currentMinutes < milestoneMinutes) {
@@ -211,26 +213,21 @@ export function App() {
         break;
       }
     }
-    return entries.map(entry => ({
-      ...entry,
-      target: entry.required * targetPct
-    }));
+    return entries.map(entry => ({ ...entry, target: entry.required * targetPct }));
   }
 
-  // --- New: Calculate target for current time (IST, milestone-based) ---
   function getCurrentTimeTargetPct() {
-    // Milestone schedule (IST)
     const milestones = [
-      { hour: 7, minute: 0, pct: 0.15 },    // 7:00  15%
-      { hour: 10, minute: 30, pct: 0.25 }, // 10:30 25%
-      { hour: 13, minute: 0, pct: 0.5 },   // 13:00 50%
-      { hour: 16, minute: 30, pct: 0.65 }, // 16:30 65%
-      { hour: 19, minute: 30, pct: 0.85 }, // 19:30 85%
-      { hour: 21, minute: 0, pct: 1.0 }    // 21:00 100%
+      { hour: 7, minute: 0, pct: 0.15 },
+      { hour: 10, minute: 30, pct: 0.25 },
+      { hour: 13, minute: 0, pct: 0.5 },
+      { hour: 16, minute: 30, pct: 0.65 },
+      { hour: 19, minute: 30, pct: 0.85 },
+      { hour: 21, minute: 0, pct: 1.0 }
     ];
     const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
     const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
-    let targetPct = 1.0; // Default to 100%
+    let targetPct = 1.0;
     for (const m of milestones) {
       const milestoneMinutes = m.hour * 60 + m.minute;
       if (currentMinutes < milestoneMinutes) {
@@ -241,10 +238,7 @@ export function App() {
     return targetPct;
   }
 
-
-  // --- New: Smart Suggestions ---
   function getSmartSuggestions(entries: NutrientEntry[]) {
-    // Suggest nutrients that are farthest from target for current time
     const targets = getCurrentTimeTarget(entries);
     const suggestions = targets
       .filter(e => e.amount < e.target)
@@ -256,7 +250,7 @@ export function App() {
   }
 
   const calculateOverallCompletion = (entries: NutrientEntry[]): number => {
-    const completions = entries.map(entry => 
+    const completions = entries.map(entry =>
       Math.min((entry.amount / entry.required) * 100, 100)
     );
     return completions.reduce((sum, val) => sum + val, 0) / entries.length;
@@ -270,19 +264,15 @@ export function App() {
       alert('Please enable notifications!');
       return;
     }
-    // Get public VAPID key from backend
     const resp = await fetch('/api/vapid-public-key');
     let vapidPublicKey = await resp.text();
-    vapidPublicKey = vapidPublicKey.trim(); // Remove whitespace/newlines
+    vapidPublicKey = vapidPublicKey.trim();
     console.log('VAPID public key (before decode):', JSON.stringify(vapidPublicKey));
     const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-
     const subscription = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: convertedVapidKey
     });
-
-    // Send subscription to backend
     await fetch('/api/save-subscription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -291,98 +281,183 @@ export function App() {
     alert('Push subscription successful!');
   }
 
+  const currentCompletion = dailyProgress?.overallCompletion || 0;
+  const targetPct = getCurrentTimeTargetPct();
+  const isOnTrack = currentCompletion >= targetPct * 100;
+
+  // Map paths to tab values
+  const tabPaths = ['/', '/history', '/history-table', '/lab-reports'];
+  const currentTab = tabPaths.find(p => p === location.pathname) ?? '/';
+
   return (
-    <BrowserRouter>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+
+      {/* ── App Header ── */}
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #0d6b4f 0%, #1B8A6B 65%, #2db882 100%)',
+          py: 1.5,
+          px: { xs: 2, md: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ maxWidth: 'lg', mx: 'auto' }}
+        >
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Box
-              component="img"
-              src="/logo.svg"
-              alt="IEM Vibe logo"
-              sx={{ width: 52, height: 52, flexShrink: 0 }}
-            />
-            <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 0 }}>
-              IEM Vibe
-            </Typography>
+              sx={{
+                width: 44, height: 44, borderRadius: '50%',
+                bgcolor: 'rgba(255,255,255,0.15)',
+                border: '2px solid rgba(255,255,255,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, overflow: 'hidden',
+              }}
+            >
+              <Box
+                component="img"
+                src="/logo.svg"
+                alt="IEM Vibe logo"
+                sx={{ width: 36, height: 36 }}
+              />
+            </Box>
+            <Box>
+              <Typography
+                variant="h5"
+                sx={{ color: 'white', lineHeight: 1.1, fontWeight: 700, letterSpacing: '-0.3px' }}
+              >
+                IEM Vibe
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.7rem' }}
+              >
+                Diet Tracker
+              </Typography>
+            </Box>
           </Stack>
+
           <Chip
-            icon={connectionStatus === 'online' ? <CloudDone sx={{ color: 'green' }} /> : <CloudOff sx={{ color: 'red' }} />}
+            icon={
+              connectionStatus === 'online'
+                ? <CloudDone fontSize="small" sx={{ color: '#86efac !important' }} />
+                : <CloudOff fontSize="small" sx={{ color: '#fca5a5 !important' }} />
+            }
             label={connectionStatus === 'online' ? 'Online' : 'Offline'}
-            color={connectionStatus === 'online' ? 'success' : 'error'}
-            variant="outlined"
-            sx={{ minWidth: 100 }}
+            size="small"
+            sx={{
+              bgcolor: 'rgba(255,255,255,0.15)',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.25)',
+              fontWeight: 600,
+            }}
           />
         </Stack>
-        <Box sx={{ mb: 2 }}>
-          <Button component={Link} to="/" variant="text" sx={{ mr: 1 }}>Tracker</Button>
-          <Button component={Link} to="/history" variant="text">History</Button>
-          <Button component={Link} to="/history-table" variant="text">Table</Button>
-          <Button component={Link} to="/lab-reports" variant="text">Lab Reports</Button>
-        </Box>
+      </Box>
+
+      {/* ── Navigation Tabs ── */}
+      <Box sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 0.5, md: 2 } }}>
+          <Tabs
+            value={currentTab}
+            onChange={(_, val) => navigate(val)}
+            variant="scrollable"
+            scrollButtons={false}
+            indicatorColor="primary"
+            textColor="primary"
+          >
+            <Tab label="Tracker" value="/" />
+            <Tab label="History" value="/history" />
+            <Tab label="Table" value="/history-table" />
+            <Tab label="Lab Reports" value="/lab-reports" />
+          </Tabs>
+        </Container>
+      </Box>
+
+      {/* ── Page Content ── */}
+      <Container maxWidth="lg" sx={{ py: { xs: 1.5, md: 3 }, px: { xs: 1.5, md: 3 } }}>
         <Routes>
           <Route path="/" element={
             <>
-              {/* ── Sticky toolbar ── */}
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                flexWrap="wrap"
+              {/* ── Sticky Toolbar ── */}
+              <Box
                 sx={{
-                  mb: 2,
                   position: 'sticky',
                   top: 0,
                   zIndex: 1100,
-                  bgcolor: 'background.paper',
-                  py: 1.5,
+                  bgcolor: 'background.default',
+                  pt: 1.5,
+                  pb: 1,
+                  mb: 2,
+                  mx: { xs: -1.5, md: -3 },
+                  px: { xs: 1.5, md: 3 },
                   borderBottom: 1,
                   borderColor: 'divider',
                 }}
               >
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    label="Date"
-                    value={selectedDate}
-                    onChange={(date) => date && setSelectedDate(date)}
-                    slotProps={{ textField: { size: 'small', sx: { width: 140 } } }}
-                    disableFuture
-                  />
-                </LocalizationProvider>
-                <Tooltip title="Reset All Values">
-                  <Button variant="outlined" color="secondary" onClick={handleResetAll} size="small">Reset</Button>
-                </Tooltip>
-                <Tooltip title="Copy from Yesterday">
-                  <Button variant="outlined" color="primary" onClick={handleCopyFromYesterday} size="small">Copy</Button>
-                </Tooltip>
-                <Tooltip title="Save All Changes">
-                  <Button variant="contained" color="primary" onClick={handleSaveAll} size="small">Save</Button>
-                </Tooltip>
-                <Tooltip title="Edit Diet Entries">
+                {/* Row 1: Date + Save */}
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <DatePicker
+                      label="Date"
+                      value={selectedDate}
+                      onChange={(date) => date && setSelectedDate(date)}
+                      slotProps={{ textField: { size: 'small', sx: { flex: 1 } } }}
+                      disableFuture
+                    />
+                  </LocalizationProvider>
+                  <Tooltip title="Save All Changes">
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleSaveAll}
+                      size="small"
+                      sx={{ px: 2.5, whiteSpace: 'nowrap', flexShrink: 0 }}
+                    >
+                      Save
+                    </Button>
+                  </Tooltip>
+                </Stack>
+
+                {/* Row 2: Secondary actions */}
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Tooltip title="Reset All Values">
+                    <Button variant="outlined" color="error" onClick={handleResetAll} size="small">
+                      Reset
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Copy from Yesterday">
+                    <Button variant="outlined" onClick={handleCopyFromYesterday} size="small">
+                      Copy
+                    </Button>
+                  </Tooltip>
                   <Button
                     variant="outlined"
-                    startIcon={<EditIcon />}
+                    startIcon={<EditIcon sx={{ fontSize: '1rem' }} />}
                     onClick={() => setSlidersOpen(true)}
                     size="small"
                   >
                     Edit Diet
                   </Button>
-                </Tooltip>
-                <Tooltip title="Diet Assistant">
-                  <IconButton
-                    color={chatOpen ? 'primary' : 'default'}
-                    onClick={() => setChatOpen(o => !o)}
-                    aria-label="toggle chat"
-                  >
-                    <ChatIcon />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
+                  <Box sx={{ flex: 1 }} />
+                  <Tooltip title="Diet Assistant">
+                    <IconButton
+                      color={chatOpen ? 'primary' : 'default'}
+                      onClick={() => setChatOpen(o => !o)}
+                      size="small"
+                      aria-label="toggle chat"
+                    >
+                      <ChatIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Box>
 
               {/* ── Main content row ── */}
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
 
-                {/* Left: Chat Sidebar */}
                 <ChatSidebar
                   open={chatOpen}
                   messages={chatMessages}
@@ -394,61 +469,226 @@ export function App() {
                   onModelChange={setSelectedModel}
                 />
 
-                {/* Right: Summary + Chart */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  {/* Summary */}
-                  <Paper sx={{ p: 2, mb: 2 }}>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="subtitle1">Overall Completion</Typography>
-                        <LinearProgress
+
+                  {/* ── Progress Summary Card ── */}
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2.5,
+                      mb: 1.5,
+                      background: isOnTrack
+                        ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
+                        : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                      border: '1px solid',
+                      borderColor: isOnTrack ? '#bbf7d0' : '#fde68a',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                    >
+                      Today's Progress
+                    </Typography>
+
+                    <Stack direction="row" alignItems="center" spacing={2.5} sx={{ mt: 1.5 }}>
+                      {/* Circular progress indicator */}
+                      <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                        {/* Track */}
+                        <CircularProgress
                           variant="determinate"
-                          value={dailyProgress?.overallCompletion || 0}
-                          sx={{ height: 10, borderRadius: 5, mb: 1 }}
+                          value={100}
+                          size={88}
+                          thickness={5}
+                          sx={{
+                            color: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                          }}
                         />
-                        <Typography variant="body2">{Math.round(dailyProgress?.overallCompletion || 0)}%</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle1">Target for Current Time</Typography>
-                        <Chip
-                          color="primary"
-                          label={`Expected: ${Math.round(getCurrentTimeTargetPct() * 100)}% of daily diet`}
+                        {/* Progress */}
+                        <CircularProgress
+                          variant="determinate"
+                          value={Math.min(currentCompletion, 100)}
+                          size={88}
+                          thickness={5}
+                          sx={{ color: isOnTrack ? '#16a34a' : '#f59e0b' }}
                         />
+                        {/* Center label */}
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              fontWeight: 800,
+                              lineHeight: 1,
+                              fontSize: '1.15rem',
+                              color: isOnTrack ? '#16a34a' : '#d97706',
+                            }}
+                          >
+                            {Math.round(currentCompletion)}%
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', mt: 0.25 }}>
+                            done
+                          </Typography>
+                        </Box>
                       </Box>
+
+                      {/* Target info */}
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          Expected right now
+                        </Typography>
+                        <Typography
+                          variant="h4"
+                          sx={{
+                            fontWeight: 800,
+                            lineHeight: 1,
+                            color: isOnTrack ? '#16a34a' : '#d97706',
+                            mb: 0.75,
+                          }}
+                        >
+                          {Math.round(targetPct * 100)}%
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 2,
+                            bgcolor: isOnTrack ? '#dcfce7' : '#fef3c7',
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <Typography
+                            variant="caption"
+                            sx={{ fontWeight: 700, color: isOnTrack ? '#16a34a' : '#d97706' }}
+                          >
+                            {isOnTrack
+                              ? 'On Track'
+                              : `${Math.round(targetPct * 100 - currentCompletion)}% behind`
+                            }
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Stack>
+
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min(currentCompletion, 100)}
+                      sx={{
+                        height: 7,
+                        mt: 2,
+                        bgcolor: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
+                        '& .MuiLinearProgress-bar': {
+                          bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
+                        },
+                      }}
+                    />
+                  </Paper>
+
+                  {/* ── Save status ── */}
+                  <Stack direction="row" sx={{ mb: 1.5 }}>
+                    {saveStatus === 'saving' && (
+                      <Chip icon={<CircularProgress size={14} />} label="Saving…" color="info" variant="outlined" size="small" />
+                    )}
+                    {saveStatus === 'saved' && (
+                      <Chip label="All changes saved" color="success" variant="outlined" size="small" />
+                    )}
+                    {saveStatus === 'error' && (
+                      <Chip label="Save failed" color="error" variant="outlined" size="small" />
+                    )}
+                  </Stack>
+
+                  {/* ── Smart Suggestions ── */}
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      mb: 2,
+                      bgcolor: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      borderLeft: '3px solid #f59e0b',
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                      <Box
+                        sx={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          bgcolor: '#f59e0b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '0.65rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>
+                          !
+                        </Typography>
+                      </Box>
+                      <Typography variant="subtitle2">Smart Suggestions</Typography>
+                    </Stack>
+                    <Stack spacing={0.75}>
+                      {getSmartSuggestions(nutrients).map((s, i) => (
+                        <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
+                          <Box
+                            sx={{
+                              width: 5, height: 5, borderRadius: '50%',
+                              bgcolor: '#f59e0b', flexShrink: 0, mt: '7px',
+                            }}
+                          />
+                          <Typography variant="body2" color="text.secondary">{s}</Typography>
+                        </Stack>
+                      ))}
                     </Stack>
                   </Paper>
 
-                  {/* Save status */}
-                  <Stack direction="row" sx={{ mb: 1 }}>
-                    {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving..." color="info" variant="outlined" />}
-                    {saveStatus === 'saved'  && <Chip label="All changes saved" color="success" variant="outlined" />}
-                    {saveStatus === 'error'  && <Chip label="Save failed" color="error" variant="outlined" />}
-                  </Stack>
-
-                  {/* Smart Suggestions */}
-                  <Paper sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="subtitle1" gutterBottom>Smart Suggestions</Typography>
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {getSmartSuggestions(nutrients).map((s, i) => <li key={i}>{s}</li>)}
-                    </ul>
-                  </Paper>
-
-                  {/* Chart */}
+                  {/* ── Category Chart ── */}
                   {!loading && (
-                    <Paper sx={{ p: 2 }}>
+                    <Paper
+                      elevation={0}
+                      sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}
+                    >
+                      <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                        Category Progress
+                      </Typography>
                       <ProgressChart nutrients={nutrients} />
                     </Paper>
                   )}
-                  {loading && <Typography>Loading...</Typography>}
+                  {loading && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 5 }}>
+                      <CircularProgress size={32} />
+                    </Box>
+                  )}
                 </Box>
               </Stack>
 
-              {/* ── Sliders Modal ── */}
+              {/* ── Edit Diet Modal ── */}
               <Dialog open={slidersOpen} onClose={() => setSlidersOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Edit Diet Entries</DialogTitle>
                 <DialogContent>
                   <Stack direction="row" sx={{ mb: 2 }}>
-                    {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving..." color="info" variant="outlined" />}
+                    {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving…" color="info" variant="outlined" />}
                     {saveStatus === 'saved'  && <Chip label="All changes saved" color="success" variant="outlined" />}
                     {saveStatus === 'error'  && <Chip label="Save failed" color="error" variant="outlined" />}
                   </Stack>
@@ -465,7 +705,7 @@ export function App() {
                   ))}
                 </DialogContent>
                 <DialogActions>
-                  <Button onClick={handleResetAll} color="secondary">Reset All</Button>
+                  <Button onClick={handleResetAll} color="error">Reset All</Button>
                   <Button onClick={handleSaveAll} variant="contained">Save All</Button>
                   <Button onClick={() => setSlidersOpen(false)}>Close</Button>
                 </DialogActions>
@@ -480,17 +720,22 @@ export function App() {
           <Route path="/history-table" element={<DietHistoryTable />} />
           <Route path="/lab-reports" element={<LabReports />} />
         </Routes>
-        <Button onClick={subscribeUserToPush}>Enable Push Notifications</Button>
+
+        <Button
+          onClick={subscribeUserToPush}
+          size="small"
+          sx={{ mt: 3, color: 'text.disabled', fontSize: '0.75rem' }}
+        >
+          Enable Push Notifications
+        </Button>
       </Container>
-    </BrowserRouter>
+    </Box>
   );
 }
 
-// Helper to format date as YYYY-MM-DD in local time (no timezone shift)
 function formatDateLocal(dateObj: Date) {
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-
