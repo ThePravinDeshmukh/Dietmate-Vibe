@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Box, Paper, Typography, TextField, IconButton,
-  CircularProgress, Stack, Select, MenuItem, FormControl
+  CircularProgress, Stack, Select, MenuItem, FormControl,
+  Drawer, useMediaQuery, useTheme
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
@@ -11,6 +12,7 @@ import { SystemPromptDialog } from './SystemPromptDialog';
 import type { ChatMessage, ChatModel } from '../hooks/useChat';
 
 interface ChatSidebarProps {
+  open: boolean;
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   loading: boolean;
@@ -20,7 +22,9 @@ interface ChatSidebarProps {
   onModelChange: (model: string) => void;
 }
 
-export function ChatSidebar({ messages, onSendMessage, loading, onClose, models, selectedModel, onModelChange }: ChatSidebarProps) {
+export function ChatSidebar({ open, messages, onSendMessage, loading, onClose, models, selectedModel, onModelChange }: ChatSidebarProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [input, setInput] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -43,10 +47,18 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose, models,
     }
   };
 
-  return (
+  if (!isMobile && !open) return null;
+
+  const paperContent = (
     <Paper
-      elevation={2}
-      sx={{
+      elevation={isMobile ? 0 : 2}
+      sx={isMobile ? {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 0,
+      } : {
         width: 320,
         minWidth: 280,
         display: 'flex',
@@ -171,4 +183,19 @@ export function ChatSidebar({ messages, onSendMessage, loading, onClose, models,
       <SystemPromptDialog open={showPrompt} onClose={() => setShowPrompt(false)} />
     </Paper>
   );
+
+  if (isMobile) {
+    return (
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={onClose}
+        PaperProps={{ sx: { width: '90vw', maxWidth: 400 } }}
+      >
+        {paperContent}
+      </Drawer>
+    );
+  }
+
+  return paperContent;
 }

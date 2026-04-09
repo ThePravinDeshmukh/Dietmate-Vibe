@@ -383,17 +383,16 @@ export function App() {
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
 
                 {/* Left: Chat Sidebar */}
-                {chatOpen && (
-                  <ChatSidebar
-                    messages={chatMessages}
-                    onSendMessage={sendMessage}
-                    loading={chatLoading}
-                    onClose={() => setChatOpen(false)}
-                    models={chatModels}
-                    selectedModel={selectedModel}
-                    onModelChange={setSelectedModel}
-                  />
-                )}
+                <ChatSidebar
+                  open={chatOpen}
+                  messages={chatMessages}
+                  onSendMessage={sendMessage}
+                  loading={chatLoading}
+                  onClose={() => setChatOpen(false)}
+                  models={chatModels}
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                />
 
                 {/* Right: Summary + Chart */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
