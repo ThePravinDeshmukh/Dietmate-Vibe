@@ -22,6 +22,28 @@ npm run debug      # Node with --inspect-brk for debugging server.js
 
 There is no test suite.
 
+## Developer Workflow
+
+### Spec-Driven Development
+
+New features follow a spec-first approach:
+
+1. **Write a spec** in `docs/specs/<feature-name>.md` before touching code. The spec should cover: problem statement, proposed solution, API changes, data model changes, and UI behavior.
+2. **Get alignment** — review the spec before implementation begins. Changes to scope happen in the spec, not mid-implementation.
+3. **Implement against the spec** — backend API first, then frontend. Keep PRs focused on one spec at a time.
+4. **Verify** — manually test the golden path and edge cases against the spec's acceptance criteria. There is no automated test suite.
+
+### Branching
+
+Work on feature branches named `<issue-number>-<short-description>` (e.g. `12-push-notification-settings`). PRs target `main`.
+
+### Making Changes
+
+- **Backend changes** (`server.js`, `chatHandler.js`): restart `npm run server` to pick up changes.
+- **Frontend changes** (`src/`): Vite HMR picks up changes automatically during `npm run dev`.
+- **Shared code** (`shared/`): used by both sides — changes affect both Express routes and React components.
+- After any change, run `npm run lint` before committing.
+
 ## Architecture
 
 ### Monorepo Layout
