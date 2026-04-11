@@ -378,6 +378,54 @@ app.get('/api/entries/batch/:start/:end', async (req, res) => {
   }
 });
 
+// --- Daily Notes ---
+
+// Get notes for a specific IST date
+app.get('/api/notes', async (req, res) => {
+  try {
+    const dateParam = req.query.date;
+    if (!dateParam) return res.status(400).json({ error: 'Missing date' });
+    const doc = await db.collection('daily_notes').findOne({ dateStr: dateParam });
+    res.json({ notes: doc?.notes || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add a note for a specific IST date
+app.post('/api/notes', async (req, res) => {
+  try {
+    const { date, text } = req.body;
+    if (!date || !text?.trim()) return res.status(400).json({ error: 'Missing date or text' });
+    const note = { text: text.trim(), createdAt: new Date() };
+    await db.collection('daily_notes').updateOne(
+      { dateStr: date },
+      { $push: { notes: note }, $setOnInsert: { dateStr: date } },
+      { upsert: true }
+    );
+    const doc = await db.collection('daily_notes').findOne({ dateStr: date });
+    res.json({ notes: doc?.notes || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a note by index for a specific IST date
+app.delete('/api/notes', async (req, res) => {
+  try {
+    const { date, createdAt } = req.body;
+    if (!date || !createdAt) return res.status(400).json({ error: 'Missing date or createdAt' });
+    await db.collection('daily_notes').updateOne(
+      { dateStr: date },
+      { $pull: { notes: { createdAt: new Date(createdAt) } } }
+    );
+    const doc = await db.collection('daily_notes').findOne({ dateStr: date });
+    res.json({ notes: doc?.notes || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Chat assistant
 app.get('/api/chat/models', listModels);
 app.post('/api/chat', (req, res) => handleChat(req, res, db));

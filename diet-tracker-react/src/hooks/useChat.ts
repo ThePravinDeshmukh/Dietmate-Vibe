@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -15,6 +15,7 @@ export function useChat(date: string, onResponse?: () => void) {
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<ChatModel[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-flash-lite-latest');
+  const autoGreetedDateRef = useRef<string>('');
 
   useEffect(() => {
     fetch('/api/chat/models')
@@ -60,6 +61,12 @@ export function useChat(date: string, onResponse?: () => void) {
       setLoading(false);
     }
   }, [date, selectedModel, onResponse]);
+
+  useEffect(() => {
+    if (!date || autoGreetedDateRef.current === date) return;
+    autoGreetedDateRef.current = date;
+    sendMessage("What's remaining in my diet today?");
+  }, [date, sendMessage]);
 
   return { messages, sendMessage, loading, models, selectedModel, setSelectedModel };
 }

@@ -35,13 +35,16 @@ There is no test suite.
 
 **Backend** (`diet-tracker-react/server.js`): Express.js serving REST API on port 5000. Vite dev server proxies `/api/*` to it.
 
-**Database**: MongoDB Atlas — two collections:
+**Database**: MongoDB Atlas — three collections:
 - `diet_entries` — daily food intake records per category
 - `lab_reports` — extracted PDF lab report parameters
+- `day_notes` — free-text notes per date
 
 ### Shared Code
 
-`diet-tracker-react/shared/requirements.js` defines `DAILY_REQUIREMENTS` — the reference amounts for 15 food categories (cereal, fruits, vegetables, legumes, milk, formulas, amino acids, etc.) used by both frontend components and backend calculations.
+- `diet-tracker-react/shared/requirements.js` — `DAILY_REQUIREMENTS`: reference amounts for 15 food categories used by both frontend and backend
+- `diet-tracker-react/shared/foodExchanges.js` — `FOOD_EXCHANGES`: food exchange mappings used by the chat agent
+- `diet-tracker-react/chatHandler.js` — Gemini-backed AI chat agent with tool-use (get/update diet entries, get remaining requirements, get notes)
 
 ### Date/Timezone Handling
 
@@ -57,14 +60,25 @@ All dates are stored in UTC in MongoDB. The client sends `YYYY-MM-DD` strings in
 | POST | `/api/entries/batch` | Batch update multiple entries |
 | GET | `/api/entries/batch/:start/:end` | Get range of entries |
 | GET | `/api/history?start=...&end=...` | Daily completion percentages |
+| GET | `/api/entries/all` | All entries (no date filter) |
 | POST | `/api/lab-reports/upload` | Upload & extract PDF lab report |
 | GET | `/api/lab-reports/parameters` | All tracked parameter names |
 | GET | `/api/lab-reports/trends?params=...` | Parameter trend data |
+| GET | `/api/notes?date=YYYY-MM-DD` | Get notes for a date |
+| POST | `/api/notes` | Add note for a date |
+| DELETE | `/api/notes` | Delete a note by `createdAt` |
+| GET | `/api/chat/models` | List available Gemini models |
+| POST | `/api/chat` | Send message to AI chat agent |
+| GET | `/api/chat/system-prompt` | Get the current system prompt |
+| GET | `/api/vapid-public-key` | Get VAPID public key for push |
+| POST | `/api/save-subscription` | Save push subscription |
 | POST | `/api/remind-missing-diet` | Trigger push notification |
 
 ### Key Components
 
 - `App.tsx` — Main daily tracking view with date picker, per-category sliders, and overall progress
+- `ChatSidebar.tsx` — AI chat panel (Gemini) with Notes tab; uses `useChat` and `useNotes` hooks
+- `SystemPromptDialog.tsx` — Editable system prompt viewer for the chat agent
 - `DietHistoryTable.tsx` — Monthly grid view with Excel export (xlsx + file-saver)
 - `LabReports.tsx` — PDF upload, parameter extraction, trend visualization
 - `ProgressChart.tsx` — Visual completion charts
@@ -79,10 +93,13 @@ MONGODB_DATABASE=diet_tracker
 PORT=5000
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
+GEMINI_API_KEY=
 ```
 
 ### Notable Features
 
+- **AI Chat Agent**: Gemini-backed chat sidebar (`chatHandler.js`) with tool-use to read/write diet entries and notes. Model is selectable at runtime. System prompt is editable via `SystemPromptDialog`.
+- **Day Notes**: Per-date free-text notes stored in `day_notes` collection; accessible from chat sidebar Notes tab via `useNotes` hook.
 - **Web Push Notifications**: VAPID-based push reminders for missing diet entries; service worker registered in `main.tsx`
 - **Offline support**: Service worker for caching; connection status tracked in UI
 - **Excel export**: Monthly data exported as `.xlsx` from `DietHistoryTable`

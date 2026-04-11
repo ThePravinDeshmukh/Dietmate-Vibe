@@ -20,6 +20,7 @@ import LabReports from './LabReports';
 import { urlBase64ToUint8Array } from '../pushUtils';
 import { ChatSidebar } from './ChatSidebar';
 import { useChat } from '../hooks/useChat';
+import { useNotes } from '../hooks/useNotes';
 import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
 
 const API_BASE_URL = '/api';
@@ -43,10 +44,11 @@ function AppContent() {
   const [now, setNow] = useState(new Date());
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [slidersOpen, setSlidersOpen] = useState(false);
   const dateStr = formatDateLocal(selectedDate);
   const { messages: chatMessages, sendMessage, loading: chatLoading, models: chatModels, selectedModel, setSelectedModel } = useChat(dateStr, () => loadDailyProgress(selectedDate));
+  const { notes } = useNotes(dateStr);
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
@@ -448,6 +450,7 @@ function AppContent() {
                       onClick={() => setChatOpen(o => !o)}
                       size="small"
                       aria-label="toggle chat"
+                      sx={{ display: { xs: 'none', md: 'inline-flex' } }}
                     >
                       <ChatIcon fontSize="small" />
                     </IconButton>
@@ -460,10 +463,12 @@ function AppContent() {
 
                 <ChatSidebar
                   open={chatOpen}
+                  date={dateStr}
                   messages={chatMessages}
                   onSendMessage={sendMessage}
                   loading={chatLoading}
                   onClose={() => setChatOpen(false)}
+                  onToggle={() => setChatOpen(o => !o)}
                   models={chatModels}
                   selectedModel={selectedModel}
                   onModelChange={setSelectedModel}
@@ -604,6 +609,40 @@ function AppContent() {
                       }}
                     />
                   </Paper>
+
+                  {/* ── Day Notes ── */}
+                  {notes.length > 0 && (
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        mb: 1.5,
+                        bgcolor: '#fefce8',
+                        border: '1px solid #fef08a',
+                        borderLeft: '3px solid #eab308',
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#a16207', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Day Notes
+                        </Typography>
+                        <Chip label={notes.length} size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#eab308', color: 'white', fontWeight: 700 }} />
+                      </Stack>
+                      <Stack spacing={0.75}>
+                        {notes.map((note, i) => (
+                          <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
+                            <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#eab308', flexShrink: 0, mt: '7px' }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.4 }}>{note.text}</Typography>
+                              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.65rem' }}>
+                                {new Date(note.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    </Paper>
+                  )}
 
                   {/* ── Save status ── */}
                   <Stack direction="row" sx={{ mb: 1.5 }}>
