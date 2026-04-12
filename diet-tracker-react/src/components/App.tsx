@@ -474,7 +474,7 @@ function AppContent() {
                   onModelChange={setSelectedModel}
                 />
 
-                <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
 
                   {/* ── Progress Summary Card ── */}
                   <Paper
