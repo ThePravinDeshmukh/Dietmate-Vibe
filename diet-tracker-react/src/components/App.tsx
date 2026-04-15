@@ -49,7 +49,7 @@ function AppContent() {
   const [chatOpen, setChatOpen] = useState(false);
   const [slidersOpen, setSlidersOpen] = useState(false);
   const dateStr = formatDateLocal(selectedDate);
-  const { messages: chatMessages, sendMessage, loading: chatLoading, models: chatModels, selectedModel, setSelectedModel } = useChat(dateStr, () => loadDailyProgress(selectedDate));
+  const { messages: chatMessages, sendMessage, retryLastMessage, loading: chatLoading, models: chatModels, selectedModel, setSelectedModel } = useChat(dateStr, () => loadDailyProgress(selectedDate));
   const { notes } = useNotes(dateStr);
 
   useEffect(() => {
@@ -496,6 +496,7 @@ function AppContent() {
                   date={dateStr}
                   messages={chatMessages}
                   onSendMessage={sendMessage}
+                  onRetry={retryLastMessage}
                   loading={chatLoading}
                   onClose={() => setChatOpen(false)}
                   onToggle={() => setChatOpen(o => !o)}

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import {
   Box, Paper, Typography, TextField, IconButton,
   CircularProgress, Stack, Select, MenuItem, FormControl,
@@ -11,6 +11,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import ChatIcon from '@mui/icons-material/Chat';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import ReactMarkdown from 'react-markdown';
 import { SystemPromptDialog } from './SystemPromptDialog';
 import type { ChatMessage, ChatModel } from '../hooks/useChat';
@@ -21,6 +22,7 @@ interface ChatSidebarProps {
   date: string;
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
+  onRetry?: () => void;
   loading: boolean;
   onClose: () => void;
   onToggle: () => void;
@@ -29,7 +31,7 @@ interface ChatSidebarProps {
   onModelChange: (model: string) => void;
 }
 
-export function ChatSidebar({ open, date, messages, onSendMessage, loading, onClose, onToggle, models, selectedModel, onModelChange }: ChatSidebarProps) {
+export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, loading, onClose, onToggle, models, selectedModel, onModelChange }: ChatSidebarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [input, setInput] = useState('');
@@ -137,34 +139,49 @@ export function ChatSidebar({ open, date, messages, onSendMessage, loading, onCl
               </Typography>
             )}
             {messages.map((msg, i) => (
-              <Box
-                key={i}
-                sx={{
-                  alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '88%',
-                  bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.100',
-                  color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
-                  px: 1.5,
-                  py: 1,
-                  borderRadius: 2,
-                }}
-              >
-                {msg.role === 'user' ? (
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{msg.content}</Typography>
-                ) : (
-                  <Box
-                    sx={{
-                      fontSize: 14, lineHeight: 1.5,
-                      '& p': { m: 0, mb: 0.5 }, '& p:last-child': { mb: 0 },
-                      '& ul, & ol': { mt: 0.5, mb: 0.5, pl: 2.5 }, '& li': { mb: 0.25 },
-                      '& strong': { fontWeight: 600 },
-                      '& code': { fontFamily: 'monospace', fontSize: 12, bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 },
-                    }}
-                  >
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+              <Fragment key={i}>
+                <Box
+                  sx={{
+                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '88%',
+                    bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.100',
+                    color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: '8px',
+                  }}
+                >
+                  {msg.role === 'user' ? (
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{msg.content}</Typography>
+                  ) : (
+                    <Box
+                      sx={{
+                        fontSize: 14, lineHeight: 1.5,
+                        '& p': { m: 0, mb: 0.5 }, '& p:last-child': { mb: 0 },
+                        '& ul, & ol': { mt: 0.5, mb: 0.5, pl: 2.5 }, '& li': { mb: 0.25 },
+                        '& strong': { fontWeight: 600 },
+                        '& code': { fontFamily: 'monospace', fontSize: 12, bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 },
+                      }}
+                    >
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </Box>
+                  )}
+                </Box>
+                {msg.isError && i === messages.length - 1 && onRetry && (
+                  <Box sx={{ alignSelf: 'flex-start' }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<RefreshIcon sx={{ fontSize: 14 }} />}
+                      onClick={onRetry}
+                      disabled={loading}
+                      sx={{ fontSize: 12, py: 0.5, px: 1.25, borderRadius: '6px' }}
+                    >
+                      Retry
+                    </Button>
                   </Box>
                 )}
-              </Box>
+              </Fragment>
             ))}
             {loading && (
               <Box sx={{ alignSelf: 'flex-start', pl: 1 }}>
