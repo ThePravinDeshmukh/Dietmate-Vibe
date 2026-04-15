@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  isError?: boolean;
 }
 
 export interface ChatModel {
@@ -16,6 +17,8 @@ export function useChat(date: string, onResponse?: () => void) {
   const [models, setModels] = useState<ChatModel[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-flash-lite-latest');
   const autoGreetedDateRef = useRef<string>('');
+  const messagesRef = useRef<ChatMessage[]>([]);
+  messagesRef.current = messages;
 
   useEffect(() => {
     fetch('/api/chat/models')
@@ -55,12 +58,27 @@ export function useChat(date: string, onResponse?: () => void) {
     } catch {
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: "Sorry, I'm unavailable right now. Please try again." }
+        { role: 'assistant', content: "Sorry, I'm unavailable right now. Please try again.", isError: true }
       ]);
     } finally {
       setLoading(false);
     }
   }, [date, selectedModel, onResponse]);
+
+  const retryLastMessage = useCallback(async () => {
+    const msgs = messagesRef.current;
+    let lastUserMsgIdx = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') {
+        lastUserMsgIdx = i;
+        break;
+      }
+    }
+    if (lastUserMsgIdx === -1) return;
+    const content = msgs[lastUserMsgIdx].content;
+    setMessages(prev => prev.slice(0, lastUserMsgIdx));
+    await sendMessage(content);
+  }, [sendMessage]);
 
   useEffect(() => {
     if (!date || autoGreetedDateRef.current === date) return;
@@ -68,5 +86,5 @@ export function useChat(date: string, onResponse?: () => void) {
     sendMessage("What's remaining in my diet today?");
   }, [date, sendMessage]);
 
-  return { messages, sendMessage, loading, models, selectedModel, setSelectedModel };
+  return { messages, sendMessage, retryLastMessage, loading, models, selectedModel, setSelectedModel };
 }
