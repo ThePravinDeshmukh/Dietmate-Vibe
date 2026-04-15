@@ -12,17 +12,19 @@ export function ProgressChart({ nutrients }: ProgressChartProps) {
     completion: Math.min((nutrient.amount / nutrient.required) * 100, 100)
   }));
 
+  const chartHeight = Math.max(160, data.length * 36);
+
   return (
     <Box>
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart
           layout="vertical"
           data={data}
           margin={{
             top: 5,
-            right: 30,
+            right: 10,
             left: 80,
-            bottom: 5
+            bottom: 20
           }}
         >
           <CartesianGrid strokeDasharray="3 3" />
