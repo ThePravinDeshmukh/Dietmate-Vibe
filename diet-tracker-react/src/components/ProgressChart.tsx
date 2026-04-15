@@ -16,25 +16,25 @@ export function ProgressChart({ nutrients }: ProgressChartProps) {
     <Box>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart
+          layout="vertical"
           data={data}
           margin={{
             top: 5,
-            right: 10,
-            left: 20,
+            right: 30,
+            left: 80,
             bottom: 5
           }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
-            dataKey="category"
-            angle={-45}
-            textAnchor="end"
-            interval={0}
-            height={60}
+            type="number"
+            domain={[0, 100]}
+            label={{ value: 'Completion %', position: 'insideBottom', offset: -2 }}
           />
           <YAxis
-            domain={[0, 100]}
-            label={{ value: 'Completion %', angle: -90, position: 'insideLeft' }}
+            type="category"
+            dataKey="category"
+            width={75}
           />
           <Tooltip
             formatter={(value: number) => `${value.toFixed(1)}%`}
