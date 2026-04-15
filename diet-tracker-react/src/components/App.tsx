@@ -10,6 +10,8 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import ChatIcon from '@mui/icons-material/Chat';
 import EditIcon from '@mui/icons-material/Edit';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { CloudDone, CloudOff } from '@mui/icons-material';
 import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
@@ -251,6 +253,22 @@ function AppContent() {
     return suggestions;
   }
 
+  const goToPrevDay = () => {
+    setSelectedDate(d => { const next = new Date(d); next.setDate(next.getDate() - 1); return next; });
+  };
+
+  const goToNextDay = () => {
+    setSelectedDate(d => {
+      const next = new Date(d);
+      next.setDate(next.getDate() + 1);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      return next > today ? d : next;
+    });
+  };
+
+  const isToday = formatDateLocal(selectedDate) === formatDateLocal(new Date());
+
   const calculateOverallCompletion = (entries: NutrientEntry[]): number => {
     const completions = entries.map(entry =>
       Math.min((entry.amount / entry.required) * 100, 100)
@@ -401,6 +419,11 @@ function AppContent() {
               >
                 {/* Row 1: Date + Save */}
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                  <Tooltip title="Previous day">
+                    <IconButton onClick={goToPrevDay} size="small" aria-label="previous day">
+                      <ChevronLeftIcon />
+                    </IconButton>
+                  </Tooltip>
                   <LocalizationProvider dateAdapter={AdapterDateFns}>
                     <DatePicker
                       label="Date"
@@ -410,6 +433,13 @@ function AppContent() {
                       disableFuture
                     />
                   </LocalizationProvider>
+                  <Tooltip title="Next day">
+                    <span>
+                      <IconButton onClick={goToNextDay} size="small" aria-label="next day" disabled={isToday}>
+                        <ChevronRightIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                   <Tooltip title="Save All Changes">
                     <Button
                       variant="contained"
