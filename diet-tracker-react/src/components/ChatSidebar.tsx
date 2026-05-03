@@ -13,6 +13,7 @@ import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { SystemPromptDialog } from './SystemPromptDialog';
 import type { ChatMessage, ChatModel } from '../hooks/useChat';
 import { useNotes } from '../hooks/useNotes';
@@ -57,7 +58,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSend();
     }
@@ -167,9 +168,13 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                         '& ul, & ol': { mt: 0.5, mb: 0.5, pl: 2.5 }, '& li': { mb: 0.25 },
                         '& strong': { fontWeight: 600 },
                         '& code': { fontFamily: 'monospace', fontSize: 12, bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 },
+                        '& table': { borderCollapse: 'collapse', width: '100%', fontSize: 12, my: 0.5 },
+                        '& th': { bgcolor: 'grey.200', fontWeight: 600, px: 1, py: 0.5, border: '1px solid', borderColor: 'grey.300', textAlign: 'left' },
+                        '& td': { px: 1, py: 0.5, border: '1px solid', borderColor: 'grey.300' },
+                        '& tr:nth-of-type(even) td': { bgcolor: 'grey.50' },
                       }}
                     >
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </Box>
                   )}
                 </Box>
@@ -200,7 +205,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
           <Stack direction="row" spacing={0.5} sx={{ p: 1, borderTop: 1, borderColor: 'divider', flexShrink: 0 }}>
             <TextField
               size="small" fullWidth
-              placeholder="Type a message..."
+              placeholder="Type a message… Ctrl+Enter to send"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}

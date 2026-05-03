@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { NutrientEntry } from '../types';
 
 interface ProgressChartProps {
@@ -12,40 +12,37 @@ export function ProgressChart({ nutrients }: ProgressChartProps) {
     completion: Math.min((nutrient.amount / nutrient.required) * 100, 100)
   }));
 
-  const chartHeight = Math.max(160, data.length * 36);
-
   return (
     <Box>
-      <ResponsiveContainer width="100%" height={chartHeight}>
+      <ResponsiveContainer width="100%" height={260}>
         <BarChart
-          layout="vertical"
           data={data}
-          margin={{
-            top: 5,
-            right: 10,
-            left: 80,
-            bottom: 20
-          }}
+          margin={{ top: 5, right: 10, left: -20, bottom: 72 }}
         >
-          <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
-            type="number"
-            domain={[0, 100]}
-            label={{ value: 'Completion %', position: 'insideBottom', offset: -2 }}
+            dataKey="category"
+            angle={-45}
+            textAnchor="end"
+            interval={0}
+            tick={{ fontSize: 10 }}
+            height={80}
           />
           <YAxis
-            type="category"
-            dataKey="category"
-            width={75}
+            domain={[0, 100]}
+            tick={{ fontSize: 11 }}
+            tickFormatter={(v: number) => `${v}%`}
+            width={42}
           />
-          <Tooltip
-            formatter={(value: number) => `${value.toFixed(1)}%`}
-          />
-          <Bar
-            dataKey="completion"
-            fill="#1976d2"
-            name="Completion %"
-          />
+          <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, 'Completion']} />
+          <Bar dataKey="completion" radius={[3, 3, 0, 0]} maxBarSize={28}>
+            {data.map((entry, i) => (
+              <Cell
+                key={i}
+                fill={entry.completion >= 100 ? '#16a34a' : entry.completion >= 60 ? '#1B8A6B' : '#f59e0b'}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </Box>
