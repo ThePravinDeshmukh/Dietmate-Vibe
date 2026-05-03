@@ -1,17 +1,21 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Stack, Paper, Typography, Snackbar, Alert,
   Button, LinearProgress, Chip, CircularProgress, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Tooltip,
-  Tabs, Tab,
+  Tabs, Tab, BottomNavigation, BottomNavigationAction,
 } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import ChatIcon from '@mui/icons-material/Chat';
 import EditIcon from '@mui/icons-material/Edit';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import HomeIcon from '@mui/icons-material/Home';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import ScienceIcon from '@mui/icons-material/Science';
+import ChatIcon from '@mui/icons-material/Chat';
+import NoteAltIcon from '@mui/icons-material/NoteAlt';
 import { CloudDone, CloudOff } from '@mui/icons-material';
 import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
@@ -27,17 +31,14 @@ import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
 
 const API_BASE_URL = '/api';
 
+type AppTab = 'tracker' | 'history' | 'table' | 'lab-reports' | 'chat' | 'notes';
+
 export function App() {
-  return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
-  );
+  return <AppContent />;
 }
 
 function AppContent() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<AppTab>('tracker');
   const [nutrients, setNutrients] = useState<NutrientEntry[]>([]);
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +47,6 @@ function AppContent() {
   const [now, setNow] = useState(new Date());
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-  const [chatOpen, setChatOpen] = useState(false);
   const [slidersOpen, setSlidersOpen] = useState(false);
   const dateStr = formatDateLocal(selectedDate);
   const { messages: chatMessages, sendMessage, retryLastMessage, loading: chatLoading, models: chatModels, selectedModel, setSelectedModel } = useChat(dateStr, () => loadDailyProgress(selectedDate));
@@ -305,9 +305,7 @@ function AppContent() {
   const targetPct = getCurrentTimeTargetPct();
   const isOnTrack = currentCompletion >= targetPct * 100;
 
-  // Map paths to tab values
-  const tabPaths = ['/', '/history', '/history-table', '/lab-reports'];
-  const currentTab = tabPaths.find(p => p === location.pathname) ?? '/';
+  const chatTabView: 'chat' | 'notes' = activeTab === 'notes' ? 'notes' : 'chat';
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -377,428 +375,483 @@ function AppContent() {
         </Stack>
       </Box>
 
-      {/* ── Navigation Tabs ── */}
-      <Box sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+      {/* ── Navigation Tabs (desktop) ── */}
+      <Box sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', display: { xs: 'none', md: 'block' } }}>
         <Container maxWidth="lg" disableGutters sx={{ px: { xs: 0.5, md: 2 } }}>
           <Tabs
-            value={currentTab}
-            onChange={(_, val) => navigate(val)}
+            value={activeTab}
+            onChange={(_, val) => setActiveTab(val as AppTab)}
             variant="scrollable"
             scrollButtons={false}
             indicatorColor="primary"
             textColor="primary"
           >
-            <Tab label="Tracker" value="/" />
-            <Tab label="History" value="/history" />
-            <Tab label="Table" value="/history-table" />
-            <Tab label="Lab Reports" value="/lab-reports" />
+            <Tab label="Tracker" value="tracker" />
+            <Tab label="History" value="history" />
+            <Tab label="Table" value="table" />
+            <Tab label="Lab Reports" value="lab-reports" />
+            <Tab
+              label="Chat"
+              value="chat"
+              icon={<ChatIcon sx={{ fontSize: 16 }} />}
+              iconPosition="start"
+              sx={{ minHeight: 48 }}
+            />
+            <Tab
+              label="Notes"
+              value="notes"
+              icon={<NoteAltIcon sx={{ fontSize: 16 }} />}
+              iconPosition="start"
+              sx={{ minHeight: 48 }}
+            />
           </Tabs>
         </Container>
       </Box>
 
       {/* ── Page Content ── */}
-      <Container maxWidth="lg" sx={{ py: { xs: 1.5, md: 3 }, px: { xs: 1.5, md: 3 } }}>
-        <Routes>
-          <Route path="/" element={
-            <>
-              {/* ── Sticky Toolbar ── */}
-              <Box
-                sx={{
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1100,
-                  bgcolor: 'background.default',
-                  pt: 1.5,
-                  pb: 1,
-                  mb: 2,
-                  mx: { xs: -1.5, md: -3 },
-                  px: { xs: 1.5, md: 3 },
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                }}
-              >
-                {/* Row 1: Date + Save */}
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <Tooltip title="Previous day">
-                    <IconButton onClick={goToPrevDay} size="small" aria-label="previous day">
-                      <ChevronLeftIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <LocalizationProvider dateAdapter={AdapterDateFns}>
-                    <DatePicker
-                      label="Date"
-                      value={selectedDate}
-                      onChange={(date) => date && setSelectedDate(date)}
-                      slotProps={{ textField: { size: 'small', sx: { flex: 1 } } }}
-                      disableFuture
-                    />
-                  </LocalizationProvider>
-                  <Tooltip title="Next day">
-                    <span>
-                      <IconButton onClick={goToNextDay} size="small" aria-label="next day" disabled={isToday}>
-                        <ChevronRightIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Save All Changes">
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleSaveAll}
-                      size="small"
-                      sx={{ px: 2.5, whiteSpace: 'nowrap', flexShrink: 0 }}
-                    >
-                      Save
-                    </Button>
-                  </Tooltip>
-                </Stack>
-
-                {/* Row 2: Secondary actions */}
-                <Stack direction="row" spacing={0.75} alignItems="center">
-                  <Tooltip title="Reset All Values">
-                    <Button variant="outlined" color="error" onClick={handleResetAll} size="small">
-                      Reset
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="Copy from Yesterday">
-                    <Button variant="outlined" onClick={handleCopyFromYesterday} size="small">
-                      Copy
-                    </Button>
-                  </Tooltip>
-                  <Button
-                    variant="outlined"
-                    startIcon={<EditIcon sx={{ fontSize: '1rem' }} />}
-                    onClick={() => setSlidersOpen(true)}
-                    size="small"
-                  >
-                    Edit Diet
-                  </Button>
-                  <Box sx={{ flex: 1 }} />
-                  <Tooltip title="Diet Assistant">
-                    <IconButton
-                      color={chatOpen ? 'primary' : 'default'}
-                      onClick={() => setChatOpen(o => !o)}
-                      size="small"
-                      aria-label="toggle chat"
-                      sx={{ display: { xs: 'none', md: 'inline-flex' } }}
-                    >
-                      <ChatIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              </Box>
-
-              {/* ── Main content row ── */}
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
-
-                <ChatSidebar
-                  open={chatOpen}
-                  date={dateStr}
-                  messages={chatMessages}
-                  onSendMessage={sendMessage}
-                  onRetry={retryLastMessage}
-                  loading={chatLoading}
-                  onClose={() => setChatOpen(false)}
-                  onToggle={() => setChatOpen(o => !o)}
-                  models={chatModels}
-                  selectedModel={selectedModel}
-                  onModelChange={setSelectedModel}
+      <Container
+        maxWidth="lg"
+        sx={{
+          pt: { xs: 1.5, md: 3 },
+          pb: { xs: '72px', md: 3 },
+          px: { xs: 1.5, md: 3 },
+        }}
+      >
+        {/* ── Tracker tab ── */}
+        <Box sx={{ display: activeTab === 'tracker' ? 'block' : 'none' }}>
+          {/* ── Sticky Toolbar ── */}
+          <Box
+            sx={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 1100,
+              bgcolor: 'background.default',
+              pt: 1.5,
+              pb: 1,
+              mb: 2,
+              mx: { xs: -1.5, md: -3 },
+              px: { xs: 1.5, md: 3 },
+              borderBottom: 1,
+              borderColor: 'divider',
+            }}
+          >
+            {/* Row 1: Date + Save */}
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Tooltip title="Previous day">
+                <IconButton onClick={goToPrevDay} size="small" aria-label="previous day">
+                  <ChevronLeftIcon />
+                </IconButton>
+              </Tooltip>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Date"
+                  value={selectedDate}
+                  onChange={(date) => date && setSelectedDate(date)}
+                  slotProps={{ textField: { size: 'small', sx: { flex: 1 } } }}
+                  disableFuture
                 />
+              </LocalizationProvider>
+              <Tooltip title="Next day">
+                <span>
+                  <IconButton onClick={goToNextDay} size="small" aria-label="next day" disabled={isToday}>
+                    <ChevronRightIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Save All Changes">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSaveAll}
+                  size="small"
+                  sx={{ px: 2.5, whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  Save
+                </Button>
+              </Tooltip>
+            </Stack>
 
-                <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+            {/* Row 2: Secondary actions */}
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Tooltip title="Reset All Values">
+                <Button variant="outlined" color="error" onClick={handleResetAll} size="small">
+                  Reset
+                </Button>
+              </Tooltip>
+              <Tooltip title="Copy from Yesterday">
+                <Button variant="outlined" onClick={handleCopyFromYesterday} size="small">
+                  Copy
+                </Button>
+              </Tooltip>
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon sx={{ fontSize: '1rem' }} />}
+                onClick={() => setSlidersOpen(true)}
+                size="small"
+              >
+                Edit Diet
+              </Button>
+            </Stack>
+          </Box>
 
-                  {/* ── Progress Summary Card ── */}
-                  <Paper
-                    elevation={0}
+          {/* ── Main content ── */}
+          <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+
+            {/* ── Progress Summary Card ── */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                mb: 1.5,
+                background: isOnTrack
+                  ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
+                  : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                border: '1px solid',
+                borderColor: isOnTrack ? '#bbf7d0' : '#fde68a',
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                Today's Progress
+              </Typography>
+
+              <Stack direction="row" alignItems="center" spacing={2.5} sx={{ mt: 1.5 }}>
+                {/* Circular progress indicator */}
+                <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                  {/* Track */}
+                  <CircularProgress
+                    variant="determinate"
+                    value={100}
+                    size={88}
+                    thickness={5}
                     sx={{
-                      p: 2.5,
-                      mb: 1.5,
-                      background: isOnTrack
-                        ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
-                        : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                      border: '1px solid',
-                      borderColor: isOnTrack ? '#bbf7d0' : '#fde68a',
+                      color: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                    }}
+                  />
+                  {/* Progress */}
+                  <CircularProgress
+                    variant="determinate"
+                    value={Math.min(currentCompletion, 100)}
+                    size={88}
+                    thickness={5}
+                    sx={{ color: isOnTrack ? '#16a34a' : '#f59e0b' }}
+                  />
+                  {/* Center label */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
                     <Typography
-                      variant="caption"
-                      sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                      sx={{
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        fontSize: '1.15rem',
+                        color: isOnTrack ? '#16a34a' : '#d97706',
+                      }}
                     >
-                      Today's Progress
+                      {Math.round(currentCompletion)}%
                     </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', mt: 0.25 }}>
+                      done
+                    </Typography>
+                  </Box>
+                </Box>
 
-                    <Stack direction="row" alignItems="center" spacing={2.5} sx={{ mt: 1.5 }}>
-                      {/* Circular progress indicator */}
-                      <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                        {/* Track */}
-                        <CircularProgress
-                          variant="determinate"
-                          value={100}
-                          size={88}
-                          thickness={5}
-                          sx={{
-                            color: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                          }}
-                        />
-                        {/* Progress */}
-                        <CircularProgress
-                          variant="determinate"
-                          value={Math.min(currentCompletion, 100)}
-                          size={88}
-                          thickness={5}
-                          sx={{ color: isOnTrack ? '#16a34a' : '#f59e0b' }}
-                        />
-                        {/* Center label */}
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            inset: 0,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Typography
-                            sx={{
-                              fontWeight: 800,
-                              lineHeight: 1,
-                              fontSize: '1.15rem',
-                              color: isOnTrack ? '#16a34a' : '#d97706',
-                            }}
-                          >
-                            {Math.round(currentCompletion)}%
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', mt: 0.25 }}>
-                            done
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      {/* Target info */}
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                          Expected right now
-                        </Typography>
-                        <Typography
-                          variant="h4"
-                          sx={{
-                            fontWeight: 800,
-                            lineHeight: 1,
-                            color: isOnTrack ? '#16a34a' : '#d97706',
-                            mb: 0.75,
-                          }}
-                        >
-                          {Math.round(targetPct * 100)}%
-                        </Typography>
-                        <Box
-                          sx={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            px: 1,
-                            py: 0.25,
-                            borderRadius: 2,
-                            bgcolor: isOnTrack ? '#dcfce7' : '#fef3c7',
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: '50%',
-                              bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
-                              flexShrink: 0,
-                            }}
-                          />
-                          <Typography
-                            variant="caption"
-                            sx={{ fontWeight: 700, color: isOnTrack ? '#16a34a' : '#d97706' }}
-                          >
-                            {isOnTrack
-                              ? 'On Track'
-                              : `${Math.round(targetPct * 100 - currentCompletion)}% behind`
-                            }
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Stack>
-
-                    <LinearProgress
-                      variant="determinate"
-                      value={Math.min(currentCompletion, 100)}
-                      sx={{
-                        height: 7,
-                        mt: 2,
-                        bgcolor: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
-                        '& .MuiLinearProgress-bar': {
-                          bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
-                        },
-                      }}
-                    />
-                  </Paper>
-
-                  {/* ── Day Notes ── */}
-                  {notes.length > 0 && (
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2,
-                        mb: 1.5,
-                        bgcolor: '#fefce8',
-                        border: '1px solid #fef08a',
-                        borderLeft: '3px solid #eab308',
-                      }}
-                    >
-                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#a16207', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Day Notes
-                        </Typography>
-                        <Chip label={notes.length} size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#eab308', color: 'white', fontWeight: 700 }} />
-                      </Stack>
-                      <Stack spacing={0.75}>
-                        {notes.map((note, i) => (
-                          <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
-                            <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#eab308', flexShrink: 0, mt: '7px' }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.4 }}>{note.text}</Typography>
-                              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.65rem' }}>
-                                {new Date(note.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        ))}
-                      </Stack>
-                    </Paper>
-                  )}
-
-                  {/* ── Save status ── */}
-                  <Stack direction="row" sx={{ mb: 1.5 }}>
-                    {saveStatus === 'saving' && (
-                      <Chip icon={<CircularProgress size={14} />} label="Saving…" color="info" variant="outlined" size="small" />
-                    )}
-                    {saveStatus === 'saved' && (
-                      <Chip label="All changes saved" color="success" variant="outlined" size="small" />
-                    )}
-                    {saveStatus === 'error' && (
-                      <Chip label="Save failed" color="error" variant="outlined" size="small" />
-                    )}
-                  </Stack>
-
-                  {/* ── Smart Suggestions ── */}
-                  <Paper
-                    elevation={0}
+                {/* Target info */}
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Expected right now
+                  </Typography>
+                  <Typography
+                    variant="h4"
                     sx={{
-                      p: 2,
-                      mb: 2,
-                      bgcolor: '#fffbeb',
-                      border: '1px solid #fde68a',
-                      borderLeft: '3px solid #f59e0b',
+                      fontWeight: 800,
+                      lineHeight: 1,
+                      color: isOnTrack ? '#16a34a' : '#d97706',
+                      mb: 0.75,
                     }}
                   >
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <Box
-                        sx={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: '50%',
-                          bgcolor: '#f59e0b',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Typography sx={{ fontSize: '0.65rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>
-                          !
-                        </Typography>
-                      </Box>
-                      <Typography variant="subtitle2">Smart Suggestions</Typography>
-                    </Stack>
-                    <Stack spacing={0.75}>
-                      {getSmartSuggestions(nutrients).map((s, i) => (
-                        <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
-                          <Box
-                            sx={{
-                              width: 5, height: 5, borderRadius: '50%',
-                              bgcolor: '#f59e0b', flexShrink: 0, mt: '7px',
-                            }}
-                          />
-                          <Typography variant="body2" color="text.secondary">{s}</Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </Paper>
-
-                  {/* ── Category Chart ── */}
-                  {!loading && (
-                    <Paper
-                      elevation={0}
-                      sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}
+                    {Math.round(targetPct * 100)}%
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: 2,
+                      bgcolor: isOnTrack ? '#dcfce7' : '#fef3c7',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 700, color: isOnTrack ? '#16a34a' : '#d97706' }}
                     >
-                      <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                        Category Progress
-                      </Typography>
-                      <ProgressChart nutrients={nutrients} />
-                    </Paper>
-                  )}
-                  {loading && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 5 }}>
-                      <CircularProgress size={32} />
-                    </Box>
-                  )}
+                      {isOnTrack
+                        ? 'On Track'
+                        : `${Math.round(targetPct * 100 - currentCompletion)}% behind`
+                      }
+                    </Typography>
+                  </Box>
                 </Box>
               </Stack>
 
-              {/* ── Edit Diet Modal ── */}
-              <Dialog open={slidersOpen} onClose={() => setSlidersOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Edit Diet Entries</DialogTitle>
-                <DialogContent>
-                  <Stack direction="row" sx={{ mb: 2 }}>
-                    {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving…" color="info" variant="outlined" />}
-                    {saveStatus === 'saved'  && <Chip label="All changes saved" color="success" variant="outlined" />}
-                    {saveStatus === 'error'  && <Chip label="Save failed" color="error" variant="outlined" />}
-                  </Stack>
-                  {nutrients.map((nutrient) => (
-                    <Box key={nutrient.category} sx={{ mb: 2 }}>
-                      <NutrientSlider
-                        category={nutrient.category}
-                        amount={nutrient.amount}
-                        maxAmount={nutrient.required}
-                        unit={nutrient.unit}
-                        onChange={(value) => handleNutrientChange(nutrient.category, value)}
-                      />
-                    </Box>
-                  ))}
-                </DialogContent>
-                <DialogActions>
-                  <Button onClick={handleResetAll} color="error">Reset All</Button>
-                  <Button onClick={handleSaveAll} variant="contained">Save All</Button>
-                  <Button onClick={() => setSlidersOpen(false)}>Close</Button>
-                </DialogActions>
-              </Dialog>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min(currentCompletion, 100)}
+                sx={{
+                  height: 7,
+                  mt: 2,
+                  bgcolor: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
+                  '& .MuiLinearProgress-bar': {
+                    bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
+                  },
+                }}
+              />
+            </Paper>
 
-              <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
-                <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>
-              </Snackbar>
-            </>
-          } />
-          <Route path="/history" element={<DietHistory />} />
-          <Route path="/history-table" element={<DietHistoryTable />} />
-          <Route path="/lab-reports" element={<LabReports />} />
-        </Routes>
+            {/* ── Day Notes ── */}
+            {notes.length > 0 && (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  mb: 1.5,
+                  bgcolor: '#fefce8',
+                  border: '1px solid #fef08a',
+                  borderLeft: '3px solid #eab308',
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#a16207', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Day Notes
+                  </Typography>
+                  <Chip label={notes.length} size="small" sx={{ height: 18, fontSize: 10, bgcolor: '#eab308', color: 'white', fontWeight: 700 }} />
+                </Stack>
+                <Stack spacing={0.75}>
+                  {notes.map((note, i) => (
+                    <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
+                      <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#eab308', flexShrink: 0, mt: '7px' }} />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.4 }}>{note.text}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.65rem' }}>
+                          {new Date(note.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
+
+            {/* ── Save status ── */}
+            <Stack direction="row" sx={{ mb: 1.5 }}>
+              {saveStatus === 'saving' && (
+                <Chip icon={<CircularProgress size={14} />} label="Saving…" color="info" variant="outlined" size="small" />
+              )}
+              {saveStatus === 'saved' && (
+                <Chip label="All changes saved" color="success" variant="outlined" size="small" />
+              )}
+              {saveStatus === 'error' && (
+                <Chip label="Save failed" color="error" variant="outlined" size="small" />
+              )}
+            </Stack>
+
+            {/* ── Smart Suggestions ── */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                mb: 2,
+                bgcolor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderLeft: '3px solid #f59e0b',
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Box
+                  sx={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    bgcolor: '#f59e0b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.65rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>
+                    !
+                  </Typography>
+                </Box>
+                <Typography variant="subtitle2">Smart Suggestions</Typography>
+              </Stack>
+              <Stack spacing={0.75}>
+                {getSmartSuggestions(nutrients).map((s, i) => (
+                  <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
+                    <Box
+                      sx={{
+                        width: 5, height: 5, borderRadius: '50%',
+                        bgcolor: '#f59e0b', flexShrink: 0, mt: '7px',
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary">{s}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </Paper>
+
+            {/* ── Category Chart ── */}
+            {!loading && (
+              <Paper
+                elevation={0}
+                sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}
+              >
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Category Progress
+                </Typography>
+                <ProgressChart nutrients={nutrients} />
+              </Paper>
+            )}
+            {loading && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 5 }}>
+                <CircularProgress size={32} />
+              </Box>
+            )}
+          </Box>
+
+          {/* ── Edit Diet Modal ── */}
+          <Dialog open={slidersOpen} onClose={() => setSlidersOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Edit Diet Entries</DialogTitle>
+            <DialogContent>
+              <Stack direction="row" sx={{ mb: 2 }}>
+                {saveStatus === 'saving' && <Chip icon={<CircularProgress size={16} />} label="Saving…" color="info" variant="outlined" />}
+                {saveStatus === 'saved'  && <Chip label="All changes saved" color="success" variant="outlined" />}
+                {saveStatus === 'error'  && <Chip label="Save failed" color="error" variant="outlined" />}
+              </Stack>
+              {nutrients.map((nutrient) => (
+                <Box key={nutrient.category} sx={{ mb: 2 }}>
+                  <NutrientSlider
+                    category={nutrient.category}
+                    amount={nutrient.amount}
+                    maxAmount={nutrient.required}
+                    unit={nutrient.unit}
+                    onChange={(value) => handleNutrientChange(nutrient.category, value)}
+                  />
+                </Box>
+              ))}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleResetAll} color="error">Reset All</Button>
+              <Button onClick={handleSaveAll} variant="contained">Save All</Button>
+              <Button onClick={() => setSlidersOpen(false)}>Close</Button>
+            </DialogActions>
+          </Dialog>
+
+          <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+            <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>
+          </Snackbar>
+        </Box>
+
+        {/* ── History tab ── */}
+        <Box sx={{ display: activeTab === 'history' ? 'block' : 'none' }}>
+          <DietHistory />
+        </Box>
+
+        {/* ── Table tab ── */}
+        <Box sx={{ display: activeTab === 'table' ? 'block' : 'none' }}>
+          <DietHistoryTable />
+        </Box>
+
+        {/* ── Lab Reports tab ── */}
+        <Box sx={{ display: activeTab === 'lab-reports' ? 'block' : 'none' }}>
+          <LabReports />
+        </Box>
+
+        {/* ── Chat & Notes tabs (shared ChatSidebar in full-page mode) ── */}
+        <Box
+          sx={{
+            display: (activeTab === 'chat' || activeTab === 'notes') ? 'flex' : 'none',
+            flexDirection: 'column',
+            height: 'calc(100vh - 200px)',
+            minHeight: 400,
+          }}
+        >
+          <ChatSidebar
+            fullPage
+            externalTab={chatTabView}
+            open
+            date={dateStr}
+            messages={chatMessages}
+            onSendMessage={sendMessage}
+            onRetry={retryLastMessage}
+            loading={chatLoading}
+            onClose={() => setActiveTab('tracker')}
+            onToggle={() => {}}
+            models={chatModels}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+          />
+        </Box>
 
         <Button
           onClick={subscribeUserToPush}
           size="small"
-          sx={{ mt: 3, color: 'text.disabled', fontSize: '0.75rem' }}
+          sx={{ mt: 3, color: 'text.disabled', fontSize: '0.75rem', display: activeTab === 'tracker' ? 'inline-flex' : 'none' }}
         >
           Enable Push Notifications
         </Button>
       </Container>
+
+      {/* ── Mobile Bottom Navigation ── */}
+      <Box
+        component="nav"
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1200,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <BottomNavigation
+          value={activeTab}
+          onChange={(_, val) => setActiveTab(val as AppTab)}
+          sx={{ height: 56 }}
+        >
+          <BottomNavigationAction label="Tracker" value="tracker" icon={<HomeIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="History" value="history" icon={<BarChartIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="Table" value="table" icon={<TableChartIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="Labs" value="lab-reports" icon={<ScienceIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="Chat" value="chat" icon={<ChatIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="Notes" value="notes" icon={<NoteAltIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+        </BottomNavigation>
+      </Box>
     </Box>
   );
 }

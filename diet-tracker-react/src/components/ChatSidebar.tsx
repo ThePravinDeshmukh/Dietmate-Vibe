@@ -29,13 +29,17 @@ interface ChatSidebarProps {
   models: ChatModel[];
   selectedModel: string;
   onModelChange: (model: string) => void;
+  fullPage?: boolean;
+  externalTab?: 'chat' | 'notes';
 }
 
-export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, loading, onClose, onToggle, models, selectedModel, onModelChange }: ChatSidebarProps) {
+export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, loading, onClose, onToggle, models, selectedModel, onModelChange, fullPage, externalTab }: ChatSidebarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [input, setInput] = useState('');
-  const [tab, setTab] = useState<'chat' | 'notes'>('chat');
+  const [tabInternal, setTabInternal] = useState<'chat' | 'notes'>('chat');
+  const tab = externalTab !== undefined ? externalTab : tabInternal;
+  const setTab = (v: 'chat' | 'notes') => { if (externalTab === undefined) setTabInternal(v); };
   const [noteInput, setNoteInput] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -123,9 +127,11 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
               <InfoIcon fontSize="small" />
             </IconButton>
           )}
-          <IconButton size="small" onClick={onClose} aria-label="close chat">
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          {!fullPage && (
+            <IconButton size="small" onClick={onClose} aria-label="close chat">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )}
         </Stack>
       </Stack>
 
@@ -269,6 +275,25 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
       <SystemPromptDialog open={showPrompt} onClose={() => setShowPrompt(false)} />
     </>
   );
+
+  // ── Full-page mode (Chat/Notes as top-level tabs) ──
+  if (fullPage) {
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        {chatPanelContent}
+      </Paper>
+    );
+  }
 
   // ── Mobile: floating FAB + popup ──
   if (isMobile) {
