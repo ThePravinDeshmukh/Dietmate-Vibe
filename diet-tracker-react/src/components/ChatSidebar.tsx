@@ -164,14 +164,15 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                     <Box
                       sx={{
                         fontSize: 14, lineHeight: 1.5,
-                        '& p': { m: 0, mb: 0.5 }, '& p:last-child': { mb: 0 },
-                        '& ul, & ol': { mt: 0.5, mb: 0.5, pl: 2.5 }, '& li': { mb: 0.25 },
+                        '& p': { margin: 0, marginBottom: '4px' }, '& p:last-child': { marginBottom: 0 },
+                        '& ul, & ol': { marginTop: '4px', marginBottom: '4px', paddingLeft: 20 }, '& li': { marginBottom: 2 },
                         '& strong': { fontWeight: 600 },
-                        '& code': { fontFamily: 'monospace', fontSize: 12, bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 },
-                        '& table': { borderCollapse: 'collapse', width: '100%', fontSize: 12, my: 0.5 },
-                        '& th': { bgcolor: 'grey.200', fontWeight: 600, px: 1, py: 0.5, border: '1px solid', borderColor: 'grey.300', textAlign: 'left' },
-                        '& td': { px: 1, py: 0.5, border: '1px solid', borderColor: 'grey.300' },
-                        '& tr:nth-of-type(even) td': { bgcolor: 'grey.50' },
+                        '& code': { fontFamily: 'monospace', fontSize: 12, backgroundColor: 'rgba(0,0,0,0.07)', padding: '1px 4px', borderRadius: 3 },
+                        '& table': { borderCollapse: 'collapse', width: '100%', fontSize: 12, margin: '6px 0', display: 'block', overflowX: 'auto' },
+                        '& thead tr': { backgroundColor: 'rgba(0,0,0,0.07)' },
+                        '& th': { fontWeight: 600, padding: '5px 10px', border: '1px solid rgba(0,0,0,0.18)', textAlign: 'left', whiteSpace: 'nowrap' },
+                        '& td': { padding: '4px 10px', border: '1px solid rgba(0,0,0,0.18)', verticalAlign: 'top' },
+                        '& tbody tr:nth-of-type(even)': { backgroundColor: 'rgba(0,0,0,0.025)' },
                       }}
                     >
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
@@ -259,10 +260,10 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
           <Box sx={{ p: 1, borderTop: 1, borderColor: 'divider', flexShrink: 0 }}>
             <TextField
               size="small" fullWidth multiline maxRows={4}
-              placeholder="e.g. Ketones 3.2, mild fever in evening..."
+              placeholder="e.g. Ketones 3.2, mild fever… Ctrl+Enter to save"
               value={noteInput}
               onChange={e => setNoteInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleAddNote(); } }}
               sx={{ mb: 1 }}
             />
             <Button
