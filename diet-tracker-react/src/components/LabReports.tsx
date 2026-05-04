@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, Button, Paper, Stack, Checkbox, FormControlLabel, CircularProgress, TextField, IconButton, Chip } from '@mui/material';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Line } from 'react-chartjs-2';
 import 'chart.js/auto';
 import AddIcon from '@mui/icons-material/Add';
@@ -8,7 +10,7 @@ const DEFAULT_PARAMS = ["C 3", "Total Carnitine", "Free Carnitine", "Acyl Carnit
 
 export default function LabReports() {
   const [file, setFile] = useState<File | null>(null);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState<Date>(() => new Date());
   const [uploading, setUploading] = useState(false);
   const [paramInput, setParamInput] = useState('');
   const [extractParams, setExtractParams] = useState<string[]>(DEFAULT_PARAMS);
@@ -48,9 +50,10 @@ export default function LabReports() {
   const handleUpload = async () => {
     if (!file || !date) return;
     setUploading(true);
+    const dateStr = formatDateForApi(date);
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('date', date);
+    formData.append('date', dateStr);
     formData.append('parameters', JSON.stringify(extractParams));
     const res = await fetch('/api/lab-reports/upload', {
       method: 'POST',
@@ -60,7 +63,7 @@ export default function LabReports() {
     if (res.ok) {
       alert('Uploaded and processed!');
       setFile(null);
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(new Date());
       fetch('/api/lab-reports/parameters').then(res => res.json()).then(setAllParams);
     } else {
       alert('Upload failed');
@@ -72,7 +75,16 @@ export default function LabReports() {
       <Paper sx={{ p: 2, mb: 3 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
           <input type="file" accept="application/pdf" onChange={handleFileChange} />
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              label="Report Date"
+              value={date}
+              onChange={(d) => d && setDate(d)}
+              format="dd-MM-yyyy"
+              disableFuture
+              slotProps={{ textField: { size: 'small' } }}
+            />
+          </LocalizationProvider>
           <Button variant="contained" onClick={handleUpload} disabled={uploading || !file || !date || extractParams.length === 0}>
             {uploading ? <CircularProgress size={20} /> : 'Upload'}
           </Button>
@@ -131,4 +143,11 @@ export default function LabReports() {
       )}
     </Box>
   );
+}
+
+function formatDateForApi(dateObj: Date) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

@@ -4,10 +4,15 @@ import {
   Button, LinearProgress, Chip, CircularProgress, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Tooltip,
   Tabs, Tab, BottomNavigation, BottomNavigationAction,
+  Checkbox, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Collapse,
 } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import HomeIcon from '@mui/icons-material/Home';
@@ -16,6 +21,8 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import ScienceIcon from '@mui/icons-material/Science';
 import ChatIcon from '@mui/icons-material/Chat';
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { CloudDone, CloudOff } from '@mui/icons-material';
 import type { NutrientEntry, DailyProgress } from '../types';
 import { NutrientSlider } from './NutrientSlider';
@@ -33,6 +40,61 @@ const API_BASE_URL = '/api';
 
 type AppTab = 'tracker' | 'history' | 'table' | 'lab-reports' | 'chat' | 'notes';
 
+const DIET_SCHEDULE = [
+  { time: '08:00 AM', action: 'Medication', item: 'Biotin, Atrest, Carnisure, Neutrolin' },
+  { time: '08:30 AM', action: 'Feed', item: 'PA Formula (16g)' },
+  { time: '10:30 AM', action: 'Feed', item: 'Cereal (7 exch) + Oil/Ghee (15g) + Sugar (10g)' },
+  { time: '12:00 PM', action: 'Supplement', item: 'Isoleucine (1.5g) + Valine (2g)' },
+  { time: '12:30 PM', action: 'Feed', item: 'Legumes (1.5 exch) + Other Veg (1.5 exch)' },
+  { time: '02:30 PM', action: 'Feed', item: 'PA Formula (16g)' },
+  { time: '04:30 PM', action: 'Medication', item: 'Carnisure, Flagyl' },
+  { time: '05:00 PM', action: 'Feed', item: 'Fresh Fruit (2 exch) + Dried Fruit (1 exch) + Jaggery (10g)' },
+  { time: '06:00 PM', action: 'Feed', item: 'Cereal (7 exch) + Root Veg (1.5 exch) + Oil/Ghee (15g)' },
+  { time: '07:30 PM', action: 'Supplement', item: 'Isoleucine (1.5g) + Valine (2g)' },
+  { time: '08:30 PM', action: 'Feed', item: 'Soy Milk (120ml) + Sugar (10g) + Ghee (5g)' },
+  { time: '10:00 PM', action: 'Medication', item: 'Biotin, Atrest, Carnisure, Neutrolin, Flagyl, Calcumax' },
+  { time: '10:30 PM', action: 'Feed', item: 'Cal-C Formula (20g)' },
+  { time: '01:30 AM', action: 'Night Feed', item: 'Free Group (1.5 exch) + Jaggery (5g)' },
+  { time: '04:30 AM', action: 'Night Feed', item: 'Free Group (1.5 exch) + Jaggery (5g)' },
+];
+
+const MEDICATIONS = [
+  { name: 'Biotin',    dose: '1 tab',   freq: 'twice/day',  doses: 2, note: '' },
+  { name: 'Atrest',   dose: '1/2 tab', freq: 'twice/day',  doses: 2, note: '' },
+  { name: 'Calcumax', dose: '5ml',     freq: 'once/day',   doses: 1, note: '' },
+  { name: 'Carnisure',dose: '5ml',     freq: 'thrice/day', doses: 3, note: '' },
+  { name: 'Flagyl',   dose: '3.5ml',   freq: 'twice/day',  doses: 2, note: '10 days on, 20 days off' },
+  { name: 'Neutrolin',dose: '5ml',     freq: 'twice/day',  doses: 2, note: '5 days on' },
+];
+
+const ACTION_BG: Record<string, string> = {
+  Medication:  '#fef3c7',
+  Feed:        '#f0fdf4',
+  Supplement:  '#eff6ff',
+  'Night Feed':'#f5f3ff',
+};
+const ACTION_COLOR: Record<string, string> = {
+  Medication:  '#92400e',
+  Feed:        '#166534',
+  Supplement:  '#1e40af',
+  'Night Feed':'#5b21b6',
+};
+
+type MedState = Record<string, boolean[]>;
+
+function loadMedState(dateStr: string): MedState {
+  try {
+    const stored = localStorage.getItem(`med_${dateStr}`);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistMedState(dateStr: string, state: MedState) {
+  localStorage.setItem(`med_${dateStr}`, JSON.stringify(state));
+}
+
 export function App() {
   return <AppContent />;
 }
@@ -48,13 +110,21 @@ function AppContent() {
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [slidersOpen, setSlidersOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [medOpen, setMedOpen] = useState(true);
   const dateStr = formatDateLocal(selectedDate);
+  const [medState, setMedChecked] = useState<MedState>(() => loadMedState(formatDateLocal(new Date())));
+
   const { messages: chatMessages, sendMessage, retryLastMessage, loading: chatLoading, models: chatModels, selectedModel, setSelectedModel } = useChat(dateStr, () => loadDailyProgress(selectedDate));
   const { notes } = useNotes(dateStr);
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
   }, [selectedDate]);
+
+  useEffect(() => {
+    setMedChecked(loadMedState(dateStr));
+  }, [dateStr]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000 * 60);
@@ -168,7 +238,7 @@ function AppContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: dateStr })
       });
-    } catch (err) {
+    } catch {
       setError('Failed to reset values');
     }
   };
@@ -189,7 +259,7 @@ function AppContent() {
         })
       });
       if (!response.ok) throw new Error('Failed to save all changes');
-    } catch (err) {
+    } catch {
       setError('Failed to save all changes');
     }
   };
@@ -198,27 +268,16 @@ function AppContent() {
     setError('Copy from Yesterday not implemented yet');
   };
 
-  function getCurrentTimeTarget(entries: NutrientEntry[]) {
-    const milestones = [
-      { hour: 7, minute: 0, pct: 0.15 },
-      { hour: 10, minute: 30, pct: 0.25 },
-      { hour: 13, minute: 0, pct: 0.5 },
-      { hour: 16, minute: 30, pct: 0.65 },
-      { hour: 19, minute: 30, pct: 0.85 },
-      { hour: 21, minute: 0, pct: 1.0 }
-    ];
-    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-    const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
-    let targetPct = 1.0;
-    for (const m of milestones) {
-      const milestoneMinutes = m.hour * 60 + m.minute;
-      if (currentMinutes < milestoneMinutes) {
-        targetPct = m.pct;
-        break;
-      }
-    }
-    return entries.map(entry => ({ ...entry, target: entry.required * targetPct }));
-  }
+  const toggleMed = (medName: string, doseIdx: number) => {
+    setMedChecked(prev => {
+      const med = MEDICATIONS.find(m => m.name === medName)!;
+      const doses = prev[medName] ? [...prev[medName]] : Array(med.doses).fill(false);
+      doses[doseIdx] = !doses[doseIdx];
+      const next = { ...prev, [medName]: doses };
+      persistMedState(dateStr, next);
+      return next;
+    });
+  };
 
   function getCurrentTimeTargetPct() {
     const milestones = [
@@ -240,17 +299,6 @@ function AppContent() {
       }
     }
     return targetPct;
-  }
-
-  function getSmartSuggestions(entries: NutrientEntry[]) {
-    const targets = getCurrentTimeTarget(entries);
-    const suggestions = targets
-      .filter(e => e.amount < e.target)
-      .sort((a, b) => (a.amount - a.target) - (b.amount - b.target))
-      .slice(0, 2)
-      .map(e => `Consider adding more ${e.category} (${Math.round(e.target - e.amount)} ${e.unit})`);
-    if (suggestions.length === 0) return ['You are on track!'];
-    return suggestions;
   }
 
   const goToPrevDay = () => {
@@ -435,8 +483,7 @@ function AppContent() {
               borderColor: 'divider',
             }}
           >
-            {/* Row 1: Date + Save */}
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
               <Tooltip title="Previous day">
                 <IconButton onClick={goToPrevDay} size="small" aria-label="previous day">
                   <ChevronLeftIcon />
@@ -447,7 +494,8 @@ function AppContent() {
                   label="Date"
                   value={selectedDate}
                   onChange={(date) => date && setSelectedDate(date)}
-                  slotProps={{ textField: { size: 'small', sx: { flex: 1 } } }}
+                  format="dd-MM-yyyy"
+                  slotProps={{ textField: { size: 'small', sx: { flex: 1, minWidth: 130 } } }}
                   disableFuture
                 />
               </LocalizationProvider>
@@ -458,39 +506,26 @@ function AppContent() {
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title="Save All Changes">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSaveAll}
-                  size="small"
-                  sx={{ px: 2.5, whiteSpace: 'nowrap', flexShrink: 0 }}
-                >
-                  Save
-                </Button>
-              </Tooltip>
-            </Stack>
-
-            {/* Row 2: Secondary actions */}
-            <Stack direction="row" spacing={0.75} alignItems="center">
               <Tooltip title="Reset All Values">
-                <Button variant="outlined" color="error" onClick={handleResetAll} size="small">
-                  Reset
-                </Button>
+                <IconButton onClick={handleResetAll} size="small" color="error">
+                  <RestartAltIcon fontSize="small" />
+                </IconButton>
               </Tooltip>
               <Tooltip title="Copy from Yesterday">
-                <Button variant="outlined" onClick={handleCopyFromYesterday} size="small">
-                  Copy
-                </Button>
+                <IconButton onClick={handleCopyFromYesterday} size="small">
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
               </Tooltip>
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon sx={{ fontSize: '1rem' }} />}
-                onClick={() => setSlidersOpen(true)}
-                size="small"
-              >
-                Edit Diet
-              </Button>
+              <Tooltip title="Edit Diet Sliders">
+                <IconButton onClick={() => setSlidersOpen(true)} size="small">
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Save All Changes">
+                <IconButton onClick={handleSaveAll} size="small" color="primary">
+                  <SaveIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Stack>
           </Box>
 
@@ -518,9 +553,7 @@ function AppContent() {
               </Typography>
 
               <Stack direction="row" alignItems="center" spacing={2.5} sx={{ mt: 1.5 }}>
-                {/* Circular progress indicator */}
                 <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                  {/* Track */}
                   <CircularProgress
                     variant="determinate"
                     value={100}
@@ -533,7 +566,6 @@ function AppContent() {
                       left: 0,
                     }}
                   />
-                  {/* Progress */}
                   <CircularProgress
                     variant="determinate"
                     value={Math.min(currentCompletion, 100)}
@@ -541,7 +573,6 @@ function AppContent() {
                     thickness={5}
                     sx={{ color: isOnTrack ? '#16a34a' : '#f59e0b' }}
                   />
-                  {/* Center label */}
                   <Box
                     sx={{
                       position: 'absolute',
@@ -568,7 +599,6 @@ function AppContent() {
                   </Box>
                 </Box>
 
-                {/* Target info */}
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                     Expected right now
@@ -678,49 +708,143 @@ function AppContent() {
               )}
             </Stack>
 
-            {/* ── Smart Suggestions ── */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                mb: 2,
-                bgcolor: '#fffbeb',
-                border: '1px solid #fde68a',
-                borderLeft: '3px solid #f59e0b',
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                <Box
-                  sx={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: '50%',
-                    bgcolor: '#f59e0b',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Typography sx={{ fontSize: '0.65rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>
-                    !
+            {/* ── Daily Diet Schedule ── */}
+            <Paper elevation={0} sx={{ mb: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ px: 2, py: 1.25, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => setScheduleOpen(v => !v)}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Daily Diet Schedule</Typography>
+                <IconButton size="small" disableRipple>
+                  {scheduleOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                </IconButton>
+              </Stack>
+              <Collapse in={scheduleOpen}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', whiteSpace: 'nowrap', py: 0.75 }}>Time</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', py: 0.75 }}>Action</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', py: 0.75 }}>Diet / Medical Item</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {DIET_SCHEDULE.map((row, i) => (
+                        <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
+                          <TableCell sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap', color: 'text.secondary', py: 0.75 }}>
+                            {row.time}
+                          </TableCell>
+                          <TableCell sx={{ py: 0.75 }}>
+                            <Chip
+                              label={row.action}
+                              size="small"
+                              sx={{
+                                fontSize: '0.65rem',
+                                height: 20,
+                                fontWeight: 600,
+                                bgcolor: ACTION_BG[row.action] || '#f3f4f6',
+                                color: ACTION_COLOR[row.action] || '#374151',
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>{row.item}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Collapse>
+            </Paper>
+
+            {/* ── Medication Checklist ── */}
+            <Paper elevation={0} sx={{ mb: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ px: 2, py: 1.25, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => setMedOpen(v => !v)}
+              >
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Medication Checklist</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.65rem' }}>
+                    {displayDate(dateStr)} — saved locally
                   </Typography>
                 </Box>
-                <Typography variant="subtitle2">Smart Suggestions</Typography>
+                <IconButton size="small" disableRipple>
+                  {medOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                </IconButton>
               </Stack>
-              <Stack spacing={0.75}>
-                {getSmartSuggestions(nutrients).map((s, i) => (
-                  <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
-                    <Box
-                      sx={{
-                        width: 5, height: 5, borderRadius: '50%',
-                        bgcolor: '#f59e0b', flexShrink: 0, mt: '7px',
-                      }}
-                    />
-                    <Typography variant="body2" color="text.secondary">{s}</Typography>
-                  </Stack>
-                ))}
-              </Stack>
+              <Collapse in={medOpen}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', py: 0.75 }}>Medicine</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', py: 0.75 }}>Dose</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', py: 0.75, textAlign: 'center' }}>Given</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', py: 0.75 }}>Note</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {MEDICATIONS.map((med) => {
+                        const checked = medState[med.name] ?? Array(med.doses).fill(false);
+                        const allDone = checked.slice(0, med.doses).every(Boolean);
+                        return (
+                          <TableRow
+                            key={med.name}
+                            sx={{
+                              '&:last-child td': { border: 0 },
+                              bgcolor: allDone ? 'rgba(22,163,74,0.04)' : 'transparent',
+                            }}
+                          >
+                            <TableCell sx={{ py: 0.5 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontWeight: 600,
+                                  fontSize: '0.8rem',
+                                  color: allDone ? '#16a34a' : 'text.primary',
+                                  textDecoration: allDone ? 'line-through' : 'none',
+                                }}
+                              >
+                                {med.name}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary', py: 0.5, whiteSpace: 'nowrap' }}>
+                              {med.dose} · {med.freq}
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              <Stack direction="row" spacing={0} justifyContent="center" alignItems="center">
+                                {Array.from({ length: med.doses }).map((_, i) => (
+                                  <Checkbox
+                                    key={i}
+                                    checked={!!checked[i]}
+                                    onChange={() => toggleMed(med.name, i)}
+                                    size="small"
+                                    sx={{
+                                      p: 0.5,
+                                      color: 'text.disabled',
+                                      '&.Mui-checked': { color: '#16a34a' },
+                                    }}
+                                  />
+                                ))}
+                              </Stack>
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.68rem', color: 'text.disabled', fontStyle: 'italic', py: 0.5 }}>
+                              {med.note}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Collapse>
             </Paper>
 
             {/* ── Category Chart ── */}
@@ -861,4 +985,9 @@ function formatDateLocal(dateObj: Date) {
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function displayDate(isoDate: string) {
+  const [y, m, d] = isoDate.split('-');
+  return `${d}-${m}-${y}`;
 }
