@@ -63,8 +63,10 @@ const MEDICATIONS = [
   { name: 'Atrest',   dose: '1/2 tab', freq: 'twice/day',  doses: 2, note: '' },
   { name: 'Calcumax', dose: '5ml',     freq: 'once/day',   doses: 1, note: '' },
   { name: 'Carnisure',dose: '5ml',     freq: 'thrice/day', doses: 3, note: '' },
-  { name: 'Flagyl',   dose: '3.5ml',   freq: 'twice/day',  doses: 2, note: '10 days on, 20 days off' },
-  { name: 'Neutrolin',dose: '5ml',     freq: 'twice/day',  doses: 2, note: '5 days on' },
+  { name: 'Flagyl',   dose: '3.5ml',   freq: 'twice/day',  doses: 2, note: '10 days' },
+  { name: 'Neutrolin',dose: '5ml',     freq: 'twice/day',  doses: 2, note: '5 days' },
+  { name: 'Ascoril',  dose: '5ml',     freq: 'thrice/day', doses: 3, note: '' },
+  { name: 'Cetzine',  dose: '3.5ml',   freq: 'once/night', doses: 1, note: 'at night' },
 ];
 
 const ACTION_BG: Record<string, string> = {
