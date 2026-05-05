@@ -51,7 +51,7 @@ const DIET_SCHEDULE = [
   { time: '06:00 PM', action: 'Feed', item: 'Cereal (7 exch) + Root Veg (1.5 exch) + Oil/Ghee (15g)' },
   { time: '07:30 PM', action: 'Supplement', item: 'Isoleucine (1.5g) + Valine (2g)' },
   { time: '08:30 PM', action: 'Feed', item: 'Soy Milk (120ml) + Sugar (10g) + Ghee (5g)' },
-  { time: '10:00 PM', action: 'Medication', item: 'Biotin, Atrest, Carnisure, Neutrolin, Flagyl, Calcumax' },
+  { time: '10:00 PM', action: 'Medication', item: 'Biotin, Atrest, Carnisure, Neutrolin, Flagyl, Calcimax' },
   { time: '10:30 PM', action: 'Feed', item: 'Cal-C Formula (20g)' },
   { time: '01:30 AM', action: 'Night Feed', item: 'Free Group (1.5 exch) + Jaggery (5g)' },
   { time: '04:30 AM', action: 'Night Feed', item: 'Free Group (1.5 exch) + Jaggery (5g)' },
@@ -60,7 +60,7 @@ const DIET_SCHEDULE = [
 const MEDICATIONS = [
   { name: 'Biotin',    dose: '1 tab',   freq: 'twice/day',  doses: 2, note: '' },
   { name: 'Atrest',   dose: '1/2 tab', freq: 'twice/day',  doses: 2, note: '' },
-  { name: 'Calcumax', dose: '5ml',     freq: 'once/day',   doses: 1, note: '' },
+  { name: 'Calcimax', dose: '5ml',     freq: 'once/day',   doses: 1, note: '' },
   { name: 'Carnisure',dose: '5ml',     freq: 'thrice/day', doses: 3, note: '' },
   { name: 'Flagyl',   dose: '3.5ml',   freq: 'twice/day',  doses: 2, note: '10 days on, 20 days off' },
   { name: 'Neutrolin',dose: '5ml',     freq: 'twice/day',  doses: 2, note: '5 days on' },
