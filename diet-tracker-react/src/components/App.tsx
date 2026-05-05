@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Box, Container, Stack, Paper, Typography, Snackbar, Alert,
   Button, LinearProgress, Chip, CircularProgress, Dialog,
@@ -30,7 +30,6 @@ import { ProgressChart } from './ProgressChart';
 import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
 import LabReports from './LabReports';
-import { urlBase64ToUint8Array } from '../pushUtils';
 import { ChatSidebar } from './ChatSidebar';
 import { useChat } from '../hooks/useChat';
 import { useNotes } from '../hooks/useNotes';
@@ -108,6 +107,7 @@ function AppContent() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [now, setNow] = useState(new Date());
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
+  const prevConnectionStatusRef = useRef<'online' | 'offline'>('online');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [slidersOpen, setSlidersOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -120,6 +120,7 @@ function AppContent() {
 
   useEffect(() => {
     loadDailyProgress(selectedDate);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   useEffect(() => {
@@ -136,28 +137,43 @@ function AppContent() {
     const checkPing = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/ping`, { cache: 'no-store' });
-        if (isMounted) setConnectionStatus(res.ok ? 'online' : 'offline');
+        if (!isMounted) return;
+        const newStatus: 'online' | 'offline' = res.ok ? 'online' : 'offline';
+        const wasOffline = prevConnectionStatusRef.current === 'offline';
+        prevConnectionStatusRef.current = newStatus;
+        setConnectionStatus(newStatus);
+        if (wasOffline && newStatus === 'online') {
+          loadDailyProgress(selectedDate);
+        }
       } catch {
-        if (isMounted) setConnectionStatus('offline');
+        if (!isMounted) return;
+        prevConnectionStatusRef.current = 'offline';
+        setConnectionStatus('offline');
       }
     };
     checkPing();
-    const interval = setInterval(checkPing, 10000);
+    const interval = setInterval(checkPing, 5000);
     return () => { isMounted = false; clearInterval(interval); };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
-  const loadDailyProgress = async (dateObj = new Date()) => {
+  const loadDailyProgress = useCallback(async (dateObj: Date = new Date()) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
       setLoading(true);
       const dateStr = formatDateLocal(dateObj);
-      const response = await fetch(`${API_BASE_URL}/entries?date=${dateStr}`);
+      const response = await fetch(`${API_BASE_URL}/entries?date=${dateStr}`, {
+        signal: controller.signal,
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch entries');
       }
       const entries = await response.json();
       if (entries.length > 0) {
         const nutrientEntries = DAILY_REQUIREMENTS.map(req => {
-            const dbEntry = entries.find((entry: any) => entry.category === req.category);          return {
+          const dbEntry = entries.find((entry: any) => entry.category === req.category);
+          return {
             category: req.category,
             amount: dbEntry ? dbEntry.amount : 0,
             unit: req.unit,
@@ -186,11 +202,28 @@ function AppContent() {
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Backend still waking up — show zero state silently; Offline chip is visible
+        const defaultNutrients = DAILY_REQUIREMENTS.map(req => ({
+          category: req.category,
+          amount: 0,
+          unit: req.unit,
+          required: req.amount
+        }));
+        setNutrients(defaultNutrients);
+        setDailyProgress({
+          date: formatDateLocal(dateObj),
+          entries: defaultNutrients,
+          overallCompletion: 0
+        });
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleNutrientChange = async (category: string, amount: number) => {
     try {
@@ -324,30 +357,6 @@ function AppContent() {
     return completions.reduce((sum, val) => sum + val, 0) / entries.length;
   };
 
-  async function subscribeUserToPush() {
-    if (!('serviceWorker' in navigator)) return;
-    const reg = await navigator.serviceWorker.ready;
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      alert('Please enable notifications!');
-      return;
-    }
-    const resp = await fetch('/api/vapid-public-key');
-    let vapidPublicKey = await resp.text();
-    vapidPublicKey = vapidPublicKey.trim();
-    console.log('VAPID public key (before decode):', JSON.stringify(vapidPublicKey));
-    const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-    const subscription = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: convertedVapidKey
-    });
-    await fetch('/api/save-subscription', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscription)
-    });
-    alert('Push subscription successful!');
-  }
 
   const currentCompletion = dailyProgress?.overallCompletion || 0;
   const targetPct = getCurrentTimeTargetPct();
@@ -940,13 +949,6 @@ function AppContent() {
           />
         </Box>
 
-        <Button
-          onClick={subscribeUserToPush}
-          size="small"
-          sx={{ mt: 3, color: 'text.disabled', fontSize: '0.75rem', display: activeTab === 'tracker' ? 'inline-flex' : 'none' }}
-        >
-          Enable Push Notifications
-        </Button>
       </Container>
 
       {/* ── Mobile Bottom Navigation ── */}
