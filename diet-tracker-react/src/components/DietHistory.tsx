@@ -134,7 +134,7 @@ export function DietHistory() {
           }}>
             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => (
               <Box key={day} sx={{ textAlign: 'center', fontWeight: 'bold', py: 1 }}>
-                <Typography variant="caption" fontSize={20}>{day}</Typography>
+                <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>{day}</Typography>
               </Box>
             ))}
             {weeks.map((week, i) => week.map((d, j) => {
@@ -173,7 +173,7 @@ export function DietHistory() {
                       <Typography
                         variant="caption"
                         color="text.secondary"
-                        sx={{ position: 'absolute', top: 4, left: 8, fontSize: 14, fontWeight: 700 }}
+                        sx={{ position: 'absolute', top: 4, left: 8, fontSize: '0.875rem', fontWeight: 700 }}
                       >
                         {d}
                       </Typography>
@@ -192,7 +192,7 @@ export function DietHistory() {
                                 ? 'text.disabled'
                                 : '#fff',
                             fontWeight: 700,
-                            fontSize: 16,
+                            fontSize: '1rem',
                             minWidth: 36,
                             textAlign: 'center',
                             transition: 'all 0.2s',

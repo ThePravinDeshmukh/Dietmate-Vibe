@@ -86,10 +86,10 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                 onChange={e => onModelChange(e.target.value)}
                 variant="standard"
                 disableUnderline
-                sx={{ fontSize: 11, color: 'text.secondary', minWidth: 80 }}
+                sx={{ fontSize: '0.7rem', color: 'text.secondary', minWidth: 80 }}
               >
                 {models.map(m => (
-                  <MenuItem key={m.id} value={m.id} sx={{ fontSize: 12 }}>
+                  <MenuItem key={m.id} value={m.id} sx={{ fontSize: '0.75rem' }}>
                     {m.displayName}
                   </MenuItem>
                 ))}
@@ -136,12 +136,12 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                   ) : (
                     <Box
                       sx={{
-                        fontSize: 14, lineHeight: 1.5,
+                        fontSize: '0.875rem', lineHeight: 1.5,
                         '& p': { margin: 0, marginBottom: '4px' }, '& p:last-child': { marginBottom: 0 },
                         '& ul, & ol': { marginTop: '4px', marginBottom: '4px', paddingLeft: 20 }, '& li': { marginBottom: 2 },
                         '& strong': { fontWeight: 600 },
-                        '& code': { fontFamily: 'monospace', fontSize: 12, backgroundColor: 'rgba(0,0,0,0.07)', padding: '1px 4px', borderRadius: 3 },
-                        '& table': { borderCollapse: 'collapse', width: '100%', fontSize: 12, margin: '6px 0', display: 'block', overflowX: 'auto' },
+                        '& code': { fontFamily: 'monospace', fontSize: '0.75rem', backgroundColor: 'rgba(0,0,0,0.07)', padding: '1px 4px', borderRadius: 3 },
+                        '& table': { borderCollapse: 'collapse', width: '100%', fontSize: '0.75rem', margin: '6px 0', display: 'block', overflowX: 'auto' },
                         '& thead tr': { backgroundColor: 'rgba(0,0,0,0.07)' },
                         '& th': { fontWeight: 600, padding: '5px 10px', border: '1px solid rgba(0,0,0,0.18)', textAlign: 'left', whiteSpace: 'nowrap' },
                         '& td': { padding: '4px 10px', border: '1px solid rgba(0,0,0,0.18)', verticalAlign: 'top' },
@@ -160,7 +160,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                       startIcon={<RefreshIcon sx={{ fontSize: 14 }} />}
                       onClick={onRetry}
                       disabled={loading}
-                      sx={{ fontSize: 12, py: 0.5, px: 1.25, borderRadius: '6px' }}
+                      sx={{ fontSize: '0.75rem', py: 0.5, px: 1.25, borderRadius: '6px' }}
                     >
                       Retry
                     </Button>
