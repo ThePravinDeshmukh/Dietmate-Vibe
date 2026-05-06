@@ -162,7 +162,7 @@ export default function DietHistoryTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Overall %</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Overall %</TableCell>
                 {dateList.map(dateStr => {
                   // Calculate percent for this date (average per-category)
                   const isFuture = new Date(dateStr) > today;
@@ -173,7 +173,7 @@ export default function DietHistoryTable() {
                     return Math.min((val / reqAmt) * 100, 100);
                   });
                   const percent = perCategoryPercents.length > 0 ? Math.round(perCategoryPercents.reduce((a, b) => a + b, 0) / perCategoryPercents.length) : 0;
-                  let cellSx: any = { fontWeight: 'bold', fontSize: '1.1rem', borderRight: 1, borderColor: 'grey.200' };
+                  let cellSx: any = { fontWeight: 'bold', fontSize: '1rem', borderRight: 1, borderColor: 'grey.200' };
                   if (dateStr === todayStr) cellSx = { ...cellSx, bgcolor: 'primary.lighter' };
                   if (!isFuture) {
                     if (percent >= 90) cellSx = { ...cellSx, bgcolor: '#e8f5e9', color: 'success.dark' };

@@ -44,7 +44,7 @@ export function SystemPromptDialog({ open, onClose }: SystemPromptDialogProps) {
         {prompt && (
           <div
             style={{
-              fontSize: 13,
+              fontSize: '0.8rem',
               lineHeight: 1.6,
               fontFamily: 'monospace',
               whiteSpace: 'pre-wrap',
