@@ -71,8 +71,8 @@ export default function LabReports() {
   };
 
   return (
-    <Box sx={{ mx: 'auto', mt: 4 }}>
-      <Paper sx={{ p: 2, mb: 3 }}>
+    <Box sx={{ mx: 'auto', mt: 1 }}>
+      <Paper sx={{ p: 2, mb: 1.5 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
           <input type="file" accept="application/pdf" onChange={handleFileChange} />
           <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -90,17 +90,18 @@ export default function LabReports() {
           </Button>
         </Stack>
       </Paper>
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="subtitle1">Parameters to Extract</Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+      <Paper sx={{ p: 2, mb: 1.5 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Parameters to Extract</Typography>
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mb: 1.5 }}>
           {extractParams.map(param => (
             <Chip
               key={param}
+              size="small"
               label={param}
               color={selected.includes(param) ? 'primary' : 'default'}
               onClick={() => setSelected(sel => sel.includes(param) ? sel.filter(p => p !== param) : [...sel, param])}
               onDelete={DEFAULT_PARAMS.includes(param) ? undefined : () => setExtractParams(extractParams.filter(p => p !== param))}
-              sx={{ m: 0.5, cursor: 'pointer' }}
+              sx={{ m: 0.25, cursor: 'pointer', fontSize: '0.75rem' }}
             />
           ))}
         </Stack>
@@ -110,23 +111,24 @@ export default function LabReports() {
         </Stack>
         <Typography variant="caption" color="text.secondary">Click a chip to select/deselect. Remove custom chips with the cross.</Typography>
       </Paper>
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="subtitle1">Select Parameters to View Trend</Typography>
+      <Paper sx={{ p: 2, mb: 1.5 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Select Parameters to View Trend</Typography>
         <Stack direction="row" spacing={2} flexWrap="wrap">
           {allParams.map(param => (
             <FormControlLabel
               key={param}
-              control={<Checkbox checked={selected.includes(param)} onChange={e => {
+              control={<Checkbox size="small" checked={selected.includes(param)} onChange={e => {
                 setSelected(sel => e.target.checked ? [...sel, param] : sel.filter(p => p !== param));
               }} />}
               label={param}
+              sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.8rem' } }}
             />
           ))}
         </Stack>
       </Paper>
       {selected.length > 0 && trendData && (
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1">Trend Chart</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Trend Chart</Typography>
           <Line
             data={{
               labels: trendData.dates,

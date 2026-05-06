@@ -92,7 +92,7 @@ export default function DietHistoryTable() {
   };
 
   return (
-    <Box sx={{ width: '100%', mx: 'auto', mt: 4 }}>
+    <Box sx={{ width: '100%', mx: 'auto', mt: 1 }}>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
           <FormControl size="small">
@@ -123,10 +123,10 @@ export default function DietHistoryTable() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 2, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Category</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 2, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Category</TableCell>
                 {dateList.map(dateStr => (
                   <TableCell key={dateStr} align="center"
-                    sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: dateStr === todayStr ? 'primary.light' : 'grey.100', borderRight: 1, borderColor: 'grey.200' }}>
+                    sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: dateStr === todayStr ? 'primary.light' : 'grey.100', borderRight: 1, borderColor: 'grey.200' }}>
                     {dateStr.slice(-2)}
                   </TableCell>
                 ))}
@@ -135,7 +135,7 @@ export default function DietHistoryTable() {
             <TableBody>
               {DAILY_REQUIREMENTS.map((req: DailyRequirement) => (
                 <TableRow key={req.category}>
-                  <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>
+                  <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>
                     {req.category}
                     <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400, fontSize: '0.95em', ml: 0.5 }}>
                       ({req.amount} {req.unit})
@@ -162,7 +162,7 @@ export default function DietHistoryTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Overall %</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: 'grey.100', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap', borderRight: 2, borderColor: 'grey.200' }}>Overall %</TableCell>
                 {dateList.map(dateStr => {
                   // Calculate percent for this date (average per-category)
                   const isFuture = new Date(dateStr) > today;
@@ -173,7 +173,7 @@ export default function DietHistoryTable() {
                     return Math.min((val / reqAmt) * 100, 100);
                   });
                   const percent = perCategoryPercents.length > 0 ? Math.round(perCategoryPercents.reduce((a, b) => a + b, 0) / perCategoryPercents.length) : 0;
-                  let cellSx: any = { fontWeight: 'bold', fontSize: '1rem', borderRight: 1, borderColor: 'grey.200' };
+                  let cellSx: any = { fontWeight: 'bold', fontSize: '0.75rem', borderRight: 1, borderColor: 'grey.200' };
                   if (dateStr === todayStr) cellSx = { ...cellSx, bgcolor: 'primary.lighter' };
                   if (!isFuture) {
                     if (percent >= 90) cellSx = { ...cellSx, bgcolor: '#e8f5e9', color: 'success.dark' };
