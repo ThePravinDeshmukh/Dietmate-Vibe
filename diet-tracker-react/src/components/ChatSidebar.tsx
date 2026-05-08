@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import {
   Box, Paper, Typography, TextField, IconButton,
   CircularProgress, Stack, Select, MenuItem, FormControl,
-  useMediaQuery, useTheme, Fab, Zoom, Slide, Button
+  useMediaQuery, useTheme, Fab, Zoom, Slide, Button,
+  ToggleButton, ToggleButtonGroup, Divider
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
@@ -11,11 +12,15 @@ import ChatIcon from '@mui/icons-material/Chat';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import AddIcon from '@mui/icons-material/Add';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SystemPromptDialog } from './SystemPromptDialog';
 import type { ChatMessage, ChatModel } from '../hooks/useChat';
 import { useNotes } from '../hooks/useNotes';
+import { useHealthTracking } from '../hooks/useHealthTracking';
+import type { KetoneLevel } from '../hooks/useHealthTracking';
 
 interface ChatSidebarProps {
   open: boolean;
@@ -43,6 +48,9 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
   const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { notes, saving: notesSaving, addNote, deleteNote } = useNotes(date, connectionStatus);
+  const { ketones, urineEvents, liquidIntake, saving: healthSaving, addKetone, deleteKetone, addUrine, deleteUrine, addLiquid, deleteLiquid } = useHealthTracking(date);
+  const [selectedKetoneLevel, setSelectedKetoneLevel] = useState<KetoneLevel>('trace');
+  const [liquidMl, setLiquidMl] = useState('');
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,6 +75,15 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
     if (!trimmed || notesSaving) return;
     await addNote(trimmed);
     setNoteInput('');
+  };
+
+  const handleAddKetone = async () => { await addKetone(selectedKetoneLevel); };
+  const handleAddUrine = async () => { await addUrine(); };
+  const handleAddLiquid = async () => {
+    const ml = parseFloat(liquidMl);
+    if (!ml || ml <= 0) return;
+    await addLiquid(ml);
+    setLiquidMl('');
   };
 
   const chatPanelContent = (
@@ -196,10 +213,125 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
       {/* Notes tab */}
       {tab === 'notes' && (
         <>
-          <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+
+            {/* Date header */}
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+              {new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            </Typography>
+
+            {/* Ketones */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Ketones
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5, mb: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={selectedKetoneLevel}
+                  onChange={(_, val) => { if (val) setSelectedKetoneLevel(val); }}
+                >
+                  {(['trace', 'small', 'moderate', 'large'] as KetoneLevel[]).map(lvl => (
+                    <ToggleButton key={lvl} value={lvl} sx={{ fontSize: '0.7rem', px: 1, py: 0.5, textTransform: 'none' }}>
+                      {lvl}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <IconButton size="small" color="primary" onClick={handleAddKetone} disabled={healthSaving} aria-label="add ketone">
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+              <Stack spacing={0.5}>
+                {ketones.map((k, i) => (
+                  <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
+                    sx={{ px: 1, py: 0.25, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 1 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>{k.level}</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                      {new Date(k.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </Typography>
+                    <IconButton size="small" onClick={() => deleteKetone(k.createdAt)}
+                      sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete ketone">
+                      <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
+
+            {/* Urine */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Urine{urineEvents.length > 0 ? ` (${urineEvents.length}×)` : ''}
+              </Typography>
+              <Stack direction="row" alignItems="center" sx={{ mt: 0.5, mb: 0.5 }}>
+                <Button size="small" variant="outlined" startIcon={<WaterDropIcon sx={{ fontSize: 14 }} />}
+                  onClick={handleAddUrine} disabled={healthSaving}
+                  sx={{ fontSize: '0.75rem', py: 0.5, px: 1.25, borderRadius: '6px', textTransform: 'none' }}>
+                  Log
+                </Button>
+              </Stack>
+              <Stack spacing={0.5}>
+                {urineEvents.map((u, i) => (
+                  <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
+                    sx={{ px: 1, py: 0.25, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 1 }}>
+                    <Typography variant="caption">event {i + 1}</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                      {new Date(u.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </Typography>
+                    <IconButton size="small" onClick={() => deleteUrine(u.createdAt)}
+                      sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete urine event">
+                      <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
+
+            {/* Liquid intake */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Liquid{liquidIntake.length > 0 ? ` (${liquidIntake.reduce((s, l) => s + l.ml, 0)} ml total)` : ''}
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5, mb: 0.5 }}>
+                <TextField
+                  size="small"
+                  type="number"
+                  placeholder="ml"
+                  value={liquidMl}
+                  onChange={e => setLiquidMl(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddLiquid(); } }}
+                  sx={{ width: 80 }}
+                  inputProps={{ min: 1 }}
+                />
+                <IconButton size="small" color="primary" onClick={handleAddLiquid}
+                  disabled={healthSaving || !liquidMl || parseFloat(liquidMl) <= 0} aria-label="add liquid">
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+              <Stack spacing={0.5}>
+                {liquidIntake.map((l, i) => (
+                  <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
+                    sx={{ px: 1, py: 0.25, bgcolor: '#fefce8', border: '1px solid #fde68a', borderRadius: 1 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>{l.ml} ml</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                      {new Date(l.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </Typography>
+                    <IconButton size="small" onClick={() => deleteLiquid(l.createdAt)}
+                      sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete liquid entry">
+                      <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* Text notes */}
             {notes.length === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-                No notes for this day yet. Add observations about sickness, ketones, vomiting, etc.
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                No notes for this day yet. Add observations below.
               </Typography>
             )}
             {notes.map((note, i) => (
