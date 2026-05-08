@@ -9,6 +9,7 @@ export interface KetoneEntry {
 
 export interface UrineEvent {
   createdAt: string;
+  label?: string;
 }
 
 export interface LiquidEntry {
@@ -131,5 +132,50 @@ export function useHealthTracking(date: string) {
     } finally { setSaving(false); }
   }, [date]);
 
-  return { ketones, urineEvents, liquidIntake, loading, saving, addKetone, deleteKetone, addUrine, deleteUrine, addLiquid, deleteLiquid };
+  const updateKetone = useCallback(async (createdAt: string, level?: KetoneLevel, newTime?: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/health-tracking/ketone', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, createdAt, level, newTime }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setKetones(data.ketones || []);
+      }
+    } finally { setSaving(false); }
+  }, [date]);
+
+  const updateUrine = useCallback(async (createdAt: string, label?: string, newTime?: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/health-tracking/urine', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, createdAt, label, newTime }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUrineEvents(data.urineEvents || []);
+      }
+    } finally { setSaving(false); }
+  }, [date]);
+
+  const updateLiquid = useCallback(async (createdAt: string, ml?: number, newTime?: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/health-tracking/liquid', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, createdAt, ml, newTime }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLiquidIntake(data.liquidIntake || []);
+      }
+    } finally { setSaving(false); }
+  }, [date]);
+
+  return { ketones, urineEvents, liquidIntake, loading, saving, addKetone, deleteKetone, addUrine, deleteUrine, addLiquid, deleteLiquid, updateKetone, updateUrine, updateLiquid };
 }
