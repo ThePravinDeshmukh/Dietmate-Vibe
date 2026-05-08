@@ -4,15 +4,14 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { FOOD_EXCHANGES } from '../../shared/foodExchanges.js';
-
-type FoodItem = { name: string; gramsPerExchange: number; unit?: string };
+import type { FoodItem } from '../../shared/foodExchanges.js';
 
 export default function FoodExchangesBrowser() {
   const [query, setQuery] = useState('');
   const lower = query.trim().toLowerCase();
 
   const filtered = useMemo(() => {
-    return Object.entries(FOOD_EXCHANGES as Record<string, FoodItem[]>).map(([cat, items]) => ({
+    return Object.entries(FOOD_EXCHANGES).map(([cat, items]: [string, FoodItem[]]) => ({
       cat,
       items: lower ? items.filter(i => i.name.toLowerCase().includes(lower)) : items,
     })).filter(({ items }) => items.length > 0);
