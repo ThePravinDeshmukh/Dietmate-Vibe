@@ -14,6 +14,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import EditIcon from '@mui/icons-material/Edit';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SystemPromptDialog } from './SystemPromptDialog';
@@ -39,6 +40,17 @@ interface ChatSidebarProps {
   connectionStatus?: 'online' | 'offline';
 }
 
+type EditingKey = { type: 'ketone' | 'urine' | 'liquid'; createdAt: string } | null;
+
+function toTimeInput(isoStr: string) {
+  const d = new Date(isoStr);
+  return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+}
+
+function buildISO(dateStr: string, hhmm: string) {
+  return new Date(dateStr + 'T' + hhmm + ':00').toISOString();
+}
+
 export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, loading, onClose, onToggle, models, selectedModel, onModelChange, fullPage, externalTab, connectionStatus }: ChatSidebarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -48,9 +60,16 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
   const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { notes, saving: notesSaving, addNote, deleteNote } = useNotes(date, connectionStatus);
-  const { ketones, urineEvents, liquidIntake, saving: healthSaving, addKetone, deleteKetone, addUrine, deleteUrine, addLiquid, deleteLiquid } = useHealthTracking(date);
+  const { ketones, urineEvents, liquidIntake, saving: healthSaving, addKetone, deleteKetone, addUrine, deleteUrine, addLiquid, deleteLiquid, updateKetone, updateUrine, updateLiquid } = useHealthTracking(date);
   const [selectedKetoneLevel, setSelectedKetoneLevel] = useState<KetoneLevel>('trace');
   const [liquidMl, setLiquidMl] = useState('');
+
+  // Edit state
+  const [editingKey, setEditingKey] = useState<EditingKey>(null);
+  const [editTime, setEditTime] = useState('');
+  const [editLevel, setEditLevel] = useState<KetoneLevel>('trace');
+  const [editLabel, setEditLabel] = useState('');
+  const [editMl, setEditMl] = useState('');
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -85,6 +104,36 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
     await addLiquid(ml);
     setLiquidMl('');
   };
+
+  const openEdit = (type: 'ketone' | 'urine' | 'liquid', createdAt: string, opts: { level?: KetoneLevel; label?: string; ml?: number }) => {
+    setEditingKey({ type, createdAt });
+    setEditTime(toTimeInput(createdAt));
+    if (opts.level) setEditLevel(opts.level);
+    if (opts.label !== undefined) setEditLabel(opts.label);
+    if (opts.ml !== undefined) setEditMl(String(opts.ml));
+  };
+
+  const cancelEdit = () => setEditingKey(null);
+
+  const saveEdit = async () => {
+    if (!editingKey) return;
+    const newTime = buildISO(date, editTime);
+    if (editingKey.type === 'ketone') {
+      await updateKetone(editingKey.createdAt, editLevel, newTime);
+    } else if (editingKey.type === 'urine') {
+      await updateUrine(editingKey.createdAt, editLabel || undefined, newTime);
+    } else {
+      const ml = parseFloat(editMl);
+      if (!ml || ml <= 0) return;
+      await updateLiquid(editingKey.createdAt, ml, newTime);
+    }
+    setEditingKey(null);
+  };
+
+  const isEditing = (type: 'ketone' | 'urine' | 'liquid', createdAt: string) =>
+    editingKey?.type === type && editingKey.createdAt === createdAt;
+
+  const editRowSx = { px: 1, py: 0.75, borderRadius: 1, border: '1px solid' };
 
   const chatPanelContent = (
     <>
@@ -244,17 +293,40 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
               </Stack>
               <Stack spacing={0.5}>
                 {ketones.map((k, i) => (
-                  <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
-                    sx={{ px: 1, py: 0.25, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>{k.level}</Typography>
-                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                      {new Date(k.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </Typography>
-                    <IconButton size="small" onClick={() => deleteKetone(k.createdAt)}
-                      sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete ketone">
-                      <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Stack>
+                  isEditing('ketone', k.createdAt) ? (
+                    <Box key={i} sx={{ ...editRowSx, bgcolor: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                      <Stack spacing={0.75}>
+                        <ToggleButtonGroup size="small" exclusive value={editLevel} onChange={(_, val) => { if (val) setEditLevel(val); }}>
+                          {(['trace', 'small', 'moderate', 'large'] as KetoneLevel[]).map(lvl => (
+                            <ToggleButton key={lvl} value={lvl} sx={{ fontSize: '0.7rem', px: 1, py: 0.5, textTransform: 'none' }}>{lvl}</ToggleButton>
+                          ))}
+                        </ToggleButtonGroup>
+                        <TextField size="small" type="time" value={editTime} onChange={e => setEditTime(e.target.value)} sx={{ width: 130 }} />
+                        <Stack direction="row" spacing={0.5}>
+                          <Button size="small" variant="contained" onClick={saveEdit} disabled={healthSaving} sx={{ fontSize: '0.7rem', py: 0.25 }}>Save</Button>
+                          <Button size="small" variant="outlined" onClick={cancelEdit} sx={{ fontSize: '0.7rem', py: 0.25 }}>Cancel</Button>
+                        </Stack>
+                      </Stack>
+                    </Box>
+                  ) : (
+                    <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
+                      sx={{ px: 1, py: 0.25, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>{k.level}</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                        {new Date(k.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                      <Stack direction="row">
+                        <IconButton size="small" onClick={() => openEdit('ketone', k.createdAt, { level: k.level })}
+                          sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="edit ketone">
+                          <EditIcon sx={{ fontSize: 13 }} />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => deleteKetone(k.createdAt)}
+                          sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete ketone">
+                          <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                  )
                 ))}
               </Stack>
             </Box>
@@ -273,17 +345,38 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
               </Stack>
               <Stack spacing={0.5}>
                 {urineEvents.map((u, i) => (
-                  <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
-                    sx={{ px: 1, py: 0.25, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 1 }}>
-                    <Typography variant="caption">event {i + 1}</Typography>
-                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                      {new Date(u.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </Typography>
-                    <IconButton size="small" onClick={() => deleteUrine(u.createdAt)}
-                      sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete urine event">
-                      <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Stack>
+                  isEditing('urine', u.createdAt) ? (
+                    <Box key={i} sx={{ ...editRowSx, bgcolor: '#eff6ff', borderColor: '#bfdbfe' }}>
+                      <Stack spacing={0.75}>
+                        <TextField size="small" placeholder={`event ${i + 1}`} value={editLabel}
+                          onChange={e => setEditLabel(e.target.value)} fullWidth
+                          label="Label (optional)" inputProps={{ style: { fontSize: '0.8rem' } }} />
+                        <TextField size="small" type="time" value={editTime} onChange={e => setEditTime(e.target.value)} sx={{ width: 130 }} />
+                        <Stack direction="row" spacing={0.5}>
+                          <Button size="small" variant="contained" onClick={saveEdit} disabled={healthSaving} sx={{ fontSize: '0.7rem', py: 0.25 }}>Save</Button>
+                          <Button size="small" variant="outlined" onClick={cancelEdit} sx={{ fontSize: '0.7rem', py: 0.25 }}>Cancel</Button>
+                        </Stack>
+                      </Stack>
+                    </Box>
+                  ) : (
+                    <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
+                      sx={{ px: 1, py: 0.25, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 1 }}>
+                      <Typography variant="caption">{u.label || `event ${i + 1}`}</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                        {new Date(u.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                      <Stack direction="row">
+                        <IconButton size="small" onClick={() => openEdit('urine', u.createdAt, { label: u.label || '' })}
+                          sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="edit urine event">
+                          <EditIcon sx={{ fontSize: 13 }} />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => deleteUrine(u.createdAt)}
+                          sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete urine event">
+                          <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                  )
                 ))}
               </Stack>
             </Box>
@@ -311,17 +404,37 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
               </Stack>
               <Stack spacing={0.5}>
                 {liquidIntake.map((l, i) => (
-                  <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
-                    sx={{ px: 1, py: 0.25, bgcolor: '#fefce8', border: '1px solid #fde68a', borderRadius: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>{l.ml} ml</Typography>
-                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                      {new Date(l.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </Typography>
-                    <IconButton size="small" onClick={() => deleteLiquid(l.createdAt)}
-                      sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete liquid entry">
-                      <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Stack>
+                  isEditing('liquid', l.createdAt) ? (
+                    <Box key={i} sx={{ ...editRowSx, bgcolor: '#fefce8', borderColor: '#fde68a' }}>
+                      <Stack spacing={0.75}>
+                        <TextField size="small" type="number" value={editMl} onChange={e => setEditMl(e.target.value)}
+                          label="ml" sx={{ width: 100 }} inputProps={{ min: 1 }} />
+                        <TextField size="small" type="time" value={editTime} onChange={e => setEditTime(e.target.value)} sx={{ width: 130 }} />
+                        <Stack direction="row" spacing={0.5}>
+                          <Button size="small" variant="contained" onClick={saveEdit} disabled={healthSaving} sx={{ fontSize: '0.7rem', py: 0.25 }}>Save</Button>
+                          <Button size="small" variant="outlined" onClick={cancelEdit} sx={{ fontSize: '0.7rem', py: 0.25 }}>Cancel</Button>
+                        </Stack>
+                      </Stack>
+                    </Box>
+                  ) : (
+                    <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
+                      sx={{ px: 1, py: 0.25, bgcolor: '#fefce8', border: '1px solid #fde68a', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>{l.ml} ml</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                        {new Date(l.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                      <Stack direction="row">
+                        <IconButton size="small" onClick={() => openEdit('liquid', l.createdAt, { ml: l.ml })}
+                          sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="edit liquid entry">
+                          <EditIcon sx={{ fontSize: 13 }} />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => deleteLiquid(l.createdAt)}
+                          sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="delete liquid entry">
+                          <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                  )
                 ))}
               </Stack>
             </Box>

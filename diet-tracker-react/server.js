@@ -526,6 +526,63 @@ app.delete('/api/health-tracking/liquid', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.patch('/api/health-tracking/ketone', async (req, res) => {
+  try {
+    const { date, createdAt, level, newTime } = req.body;
+    if (!date || !createdAt) return res.status(400).json({ error: 'Missing date or createdAt' });
+    const updateFields = {};
+    if (level && ['trace', 'small', 'moderate', 'large'].includes(level)) updateFields['ketones.$[elem].level'] = level;
+    if (newTime) updateFields['ketones.$[elem].createdAt'] = new Date(newTime);
+    if (Object.keys(updateFields).length > 0) {
+      await db.collection('health_tracking').updateOne(
+        { dateStr: date },
+        { $set: updateFields },
+        { arrayFilters: [{ 'elem.createdAt': new Date(createdAt) }] }
+      );
+    }
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ ketones: doc?.ketones || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.patch('/api/health-tracking/urine', async (req, res) => {
+  try {
+    const { date, createdAt, label, newTime } = req.body;
+    if (!date || !createdAt) return res.status(400).json({ error: 'Missing date or createdAt' });
+    const updateFields = {};
+    if (label !== undefined) updateFields['urineEvents.$[elem].label'] = label;
+    if (newTime) updateFields['urineEvents.$[elem].createdAt'] = new Date(newTime);
+    if (Object.keys(updateFields).length > 0) {
+      await db.collection('health_tracking').updateOne(
+        { dateStr: date },
+        { $set: updateFields },
+        { arrayFilters: [{ 'elem.createdAt': new Date(createdAt) }] }
+      );
+    }
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ urineEvents: doc?.urineEvents || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.patch('/api/health-tracking/liquid', async (req, res) => {
+  try {
+    const { date, createdAt, ml, newTime } = req.body;
+    if (!date || !createdAt) return res.status(400).json({ error: 'Missing date or createdAt' });
+    const updateFields = {};
+    if (typeof ml === 'number' && ml > 0) updateFields['liquidIntake.$[elem].ml'] = ml;
+    if (newTime) updateFields['liquidIntake.$[elem].createdAt'] = new Date(newTime);
+    if (Object.keys(updateFields).length > 0) {
+      await db.collection('health_tracking').updateOne(
+        { dateStr: date },
+        { $set: updateFields },
+        { arrayFilters: [{ 'elem.createdAt': new Date(createdAt) }] }
+      );
+    }
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ liquidIntake: doc?.liquidIntake || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // Chat assistant
 app.get('/api/chat/models', listModels);
 app.post('/api/chat', (req, res) => handleChat(req, res, db));

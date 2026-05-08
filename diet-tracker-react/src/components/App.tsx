@@ -865,15 +865,16 @@ function AppContent() {
         <BottomNavigation
           value={activeTab}
           onChange={(_, val) => setActiveTab(val as AppTab)}
+          showLabels
           sx={{ height: 56 }}
         >
-          <BottomNavigationAction label="Tracker" value="tracker" icon={<HomeIcon />} sx={{ minWidth: 0, px: 0.5 }} />
-          <BottomNavigationAction label="History" value="history" icon={<BarChartIcon />} sx={{ minWidth: 0, px: 0.5 }} />
-          <BottomNavigationAction label="Table" value="table" icon={<TableChartIcon />} sx={{ minWidth: 0, px: 0.5 }} />
-          <BottomNavigationAction label="Labs" value="lab-reports" icon={<ScienceIcon />} sx={{ minWidth: 0, px: 0.5 }} />
-          <BottomNavigationAction label="Chat" value="chat" icon={<ChatIcon />} sx={{ minWidth: 0, px: 0.5 }} />
-          <BottomNavigationAction label="Notes" value="notes" icon={<NoteAltIcon />} sx={{ minWidth: 0, px: 0.5 }} />
-          <BottomNavigationAction label="Exchanges" value="exchanges" icon={<MenuBookIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="Tracker" value="tracker" icon={<HomeIcon />} sx={{ minWidth: 0, px: 0.5, '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' } }} />
+          <BottomNavigationAction label="History" value="history" icon={<BarChartIcon />} sx={{ minWidth: 0, px: 0.5, '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' } }} />
+          <BottomNavigationAction label="Table" value="table" icon={<TableChartIcon />} sx={{ minWidth: 0, px: 0.5, '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' } }} />
+          <BottomNavigationAction label="Labs" value="lab-reports" icon={<ScienceIcon />} sx={{ minWidth: 0, px: 0.5, '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' } }} />
+          <BottomNavigationAction label="Chat" value="chat" icon={<ChatIcon />} sx={{ minWidth: 0, px: 0.5, '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' } }} />
+          <BottomNavigationAction label="Notes" value="notes" icon={<NoteAltIcon />} sx={{ minWidth: 0, px: 0.5, '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' } }} />
+          <BottomNavigationAction label="Exchanges" value="exchanges" icon={<MenuBookIcon />} sx={{ minWidth: 0, px: 0.5, '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' } }} />
         </BottomNavigation>
       </Box>
     </Box>

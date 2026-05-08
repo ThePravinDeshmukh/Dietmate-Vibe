@@ -13,7 +13,7 @@ export default function FoodExchangesBrowser() {
   const filtered = useMemo(() => {
     return Object.entries(FOOD_EXCHANGES).map(([cat, items]: [string, FoodItem[]]) => ({
       cat,
-      items: lower ? items.filter(i => i.name.toLowerCase().includes(lower)) : items,
+      items: lower ? items.filter(i => i.name.toLowerCase().includes(lower) || (i.marathi || '').includes(lower)) : items,
     })).filter(({ items }) => items.length > 0);
   }, [lower]);
 
@@ -75,7 +75,14 @@ export default function FoodExchangesBrowser() {
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
                 >
-                  <Typography variant="body2">{item.name}</Typography>
+                  <Stack spacing={0}>
+                    <Typography variant="body2">{item.name}</Typography>
+                    {item.marathi && (
+                      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                        {item.marathi}
+                      </Typography>
+                    )}
+                  </Stack>
                   <Typography variant="body2" color="text.secondary" sx={{ ml: 2, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                     {item.gramsPerExchange}&thinsp;{item.unit ?? 'g'}
                   </Typography>
