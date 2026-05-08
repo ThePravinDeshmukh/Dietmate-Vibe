@@ -2,8 +2,7 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import {
   Box, Paper, Typography, TextField, IconButton,
   CircularProgress, Stack, Select, MenuItem, FormControl,
-  useMediaQuery, useTheme, Fab, Zoom, Slide,
-  ToggleButtonGroup, ToggleButton, Button
+  useMediaQuery, useTheme, Fab, Zoom, Slide, Button
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
@@ -32,19 +31,18 @@ interface ChatSidebarProps {
   onModelChange: (model: string) => void;
   fullPage?: boolean;
   externalTab?: 'chat' | 'notes';
+  connectionStatus?: 'online' | 'offline';
 }
 
-export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, loading, onClose, onToggle, models, selectedModel, onModelChange, fullPage, externalTab }: ChatSidebarProps) {
+export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, loading, onClose, onToggle, models, selectedModel, onModelChange, fullPage, externalTab, connectionStatus }: ChatSidebarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [input, setInput] = useState('');
-  const [tabInternal, setTabInternal] = useState<'chat' | 'notes'>('chat');
-  const tab = externalTab !== undefined ? externalTab : tabInternal;
-  const setTab = (v: 'chat' | 'notes') => { if (externalTab === undefined) setTabInternal(v); };
+  const tab = externalTab ?? 'chat';
   const [noteInput, setNoteInput] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { notes, saving: notesSaving, addNote, deleteNote } = useNotes(date);
+  const { notes, saving: notesSaving, addNote, deleteNote } = useNotes(date, connectionStatus);
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -80,31 +78,6 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
         justifyContent="space-between"
         sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}
       >
-        <ToggleButtonGroup
-          value={tab}
-          exclusive
-          onChange={(_, v) => v && setTab(v)}
-          size="small"
-          sx={{ '& .MuiToggleButton-root': { px: 1.5, py: 0.25, fontSize: 12, textTransform: 'none', border: 'none', borderRadius: '6px !important' } }}
-        >
-          <ToggleButton value="chat">Chat</ToggleButton>
-          <ToggleButton value="notes">
-            Notes
-            {notes.length > 0 && (
-              <Box
-                component="span"
-                sx={{
-                  ml: 0.75, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 16, height: 16, borderRadius: '50%', bgcolor: 'primary.main',
-                  color: 'white', fontSize: 10, fontWeight: 700,
-                }}
-              >
-                {notes.length}
-              </Box>
-            )}
-          </ToggleButton>
-        </ToggleButtonGroup>
-
         <Stack direction="row" alignItems="center" spacing={0.5}>
           {tab === 'chat' && models.length > 0 && (
             <FormControl size="small">
@@ -113,10 +86,10 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                 onChange={e => onModelChange(e.target.value)}
                 variant="standard"
                 disableUnderline
-                sx={{ fontSize: 11, color: 'text.secondary', minWidth: 80 }}
+                sx={{ fontSize: '0.7rem', color: 'text.secondary', minWidth: 80 }}
               >
                 {models.map(m => (
-                  <MenuItem key={m.id} value={m.id} sx={{ fontSize: 12 }}>
+                  <MenuItem key={m.id} value={m.id} sx={{ fontSize: '0.75rem' }}>
                     {m.displayName}
                   </MenuItem>
                 ))}
@@ -163,12 +136,12 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                   ) : (
                     <Box
                       sx={{
-                        fontSize: 14, lineHeight: 1.5,
+                        fontSize: '0.875rem', lineHeight: 1.5,
                         '& p': { margin: 0, marginBottom: '4px' }, '& p:last-child': { marginBottom: 0 },
                         '& ul, & ol': { marginTop: '4px', marginBottom: '4px', paddingLeft: 20 }, '& li': { marginBottom: 2 },
                         '& strong': { fontWeight: 600 },
-                        '& code': { fontFamily: 'monospace', fontSize: 12, backgroundColor: 'rgba(0,0,0,0.07)', padding: '1px 4px', borderRadius: 3 },
-                        '& table': { borderCollapse: 'collapse', width: '100%', fontSize: 12, margin: '6px 0', display: 'block', overflowX: 'auto' },
+                        '& code': { fontFamily: 'monospace', fontSize: '0.75rem', backgroundColor: 'rgba(0,0,0,0.07)', padding: '1px 4px', borderRadius: 3 },
+                        '& table': { borderCollapse: 'collapse', width: '100%', fontSize: '0.75rem', margin: '6px 0', display: 'block', overflowX: 'auto' },
                         '& thead tr': { backgroundColor: 'rgba(0,0,0,0.07)' },
                         '& th': { fontWeight: 600, padding: '5px 10px', border: '1px solid rgba(0,0,0,0.18)', textAlign: 'left', whiteSpace: 'nowrap' },
                         '& td': { padding: '4px 10px', border: '1px solid rgba(0,0,0,0.18)', verticalAlign: 'top' },
@@ -187,7 +160,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                       startIcon={<RefreshIcon sx={{ fontSize: 14 }} />}
                       onClick={onRetry}
                       disabled={loading}
-                      sx={{ fontSize: 12, py: 0.5, px: 1.25, borderRadius: '6px' }}
+                      sx={{ fontSize: '0.75rem', py: 0.5, px: 1.25, borderRadius: '6px' }}
                     >
                       Retry
                     </Button>
@@ -234,9 +207,9 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                 key={i}
                 sx={{
                   p: 1.5,
-                  bgcolor: '#fffbeb',
-                  border: '1px solid #fde68a',
-                  borderLeft: '3px solid #f59e0b',
+                  bgcolor: note.pending ? '#f0f9ff' : '#fffbeb',
+                  border: note.pending ? '1px solid #bae6fd' : '1px solid #fde68a',
+                  borderLeft: note.pending ? '3px solid #38bdf8' : '3px solid #f59e0b',
                   borderRadius: 1.5,
                   position: 'relative',
                 }}
@@ -244,6 +217,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                 <Typography variant="body2" sx={{ pr: 3, whiteSpace: 'pre-wrap' }}>{note.text}</Typography>
                 <Typography variant="caption" sx={{ color: 'text.disabled', mt: 0.5, display: 'block' }}>
                   {new Date(note.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  {note.pending && ' · pending sync'}
                 </Typography>
                 <IconButton
                   size="small"
@@ -258,6 +232,11 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
           </Box>
 
           <Box sx={{ p: 1, borderTop: 1, borderColor: 'divider', flexShrink: 0 }}>
+            {connectionStatus === 'offline' && (
+              <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', fontStyle: 'italic', mb: 0.75 }}>
+                Offline — notes will sync when reconnected
+              </Typography>
+            )}
             <TextField
               size="small" fullWidth multiline maxRows={4}
               placeholder="e.g. Ketones 3.2, mild fever… Ctrl+Enter to save"

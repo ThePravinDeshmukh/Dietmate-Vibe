@@ -21,6 +21,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import ScienceIcon from '@mui/icons-material/Science';
 import ChatIcon from '@mui/icons-material/Chat';
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { CloudDone, CloudOff } from '@mui/icons-material';
@@ -31,13 +32,14 @@ import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
 import LabReports from './LabReports';
 import { ChatSidebar } from './ChatSidebar';
+import FoodExchangesBrowser from './FoodExchangesBrowser';
 import { useChat } from '../hooks/useChat';
 import { useNotes } from '../hooks/useNotes';
 import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
 
 const API_BASE_URL = '/api';
 
-type AppTab = 'tracker' | 'history' | 'table' | 'lab-reports' | 'chat' | 'notes';
+type AppTab = 'tracker' | 'history' | 'table' | 'lab-reports' | 'chat' | 'notes' | 'exchanges';
 
 const DIET_SCHEDULE = [
   { time: '08:00 AM', action: 'Medication', item: 'Biotin, Atrest, Carnisure, Neutrolin' },
@@ -108,8 +110,8 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [now, setNow] = useState(new Date());
-  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
-  const prevConnectionStatusRef = useRef<'online' | 'offline'>('online');
+  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('offline');
+  const prevConnectionStatusRef = useRef<'online' | 'offline'>('offline');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [slidersOpen, setSlidersOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -316,15 +318,15 @@ function AppContent() {
 
   function getCurrentTimeTargetPct() {
     const milestones = [
-      { hour: 7, minute: 0, pct: 0.15 },
+      { hour: 8, minute: 0, pct: 0.0 },   // before 8 AM: day hasn't started
       { hour: 10, minute: 30, pct: 0.25 },
       { hour: 13, minute: 0, pct: 0.5 },
       { hour: 16, minute: 30, pct: 0.65 },
       { hour: 19, minute: 30, pct: 0.85 },
       { hour: 21, minute: 0, pct: 1.0 }
     ];
-    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-    const currentMinutes = istNow.getHours() * 60 + istNow.getMinutes();
+    // now is already in local IST time — no offset needed
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
     let targetPct = 1.0;
     for (const m of milestones) {
       const milestoneMinutes = m.hour * 60 + m.minute;
@@ -374,47 +376,56 @@ function AppContent() {
         sx={{
           background: 'linear-gradient(135deg, #0d6b4f 0%, #1B8A6B 65%, #2db882 100%)',
           py: 1.5,
-          px: { xs: 2, md: 3 },
         }}
       >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{ maxWidth: 'lg', mx: 'auto' }}
+          sx={{ maxWidth: 'lg', mx: 'auto', px: { xs: 1.5, md: 3 } }}
         >
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box
+          {/* Compact progress */}
+          <Box sx={{ flex: 1, mr: { xs: 1.5, md: 2.5 }, minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+              <Typography sx={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', lineHeight: 1, flexShrink: 0 }}>
+                {dailyProgress ? `${Math.round(currentCompletion)}%` : '—'}
+              </Typography>
+              {dailyProgress && (
+                <Box
+                  sx={{
+                    display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                    px: 0.75, py: 0.2, borderRadius: 1.5,
+                    bgcolor: isOnTrack ? 'rgba(134,239,172,0.2)' : 'rgba(251,191,36,0.2)',
+                    border: '1px solid',
+                    borderColor: isOnTrack ? 'rgba(134,239,172,0.4)' : 'rgba(251,191,36,0.4)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: isOnTrack ? '#86efac' : '#fbbf24' }} />
+                  <Typography sx={{ color: isOnTrack ? '#86efac' : '#fbbf24', fontWeight: 700, fontSize: '0.65rem' }}>
+                    {isOnTrack ? 'On Track' : `${Math.round(targetPct * 100 - currentCompletion)}% behind`}
+                  </Typography>
+                </Box>
+              )}
+              {dailyProgress && (
+                <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.65rem', ml: 'auto !important', flexShrink: 0 }}>
+                  target {Math.round(targetPct * 100)}%
+                </Typography>
+              )}
+            </Stack>
+            <LinearProgress
+              variant={dailyProgress ? 'determinate' : 'indeterminate'}
+              value={dailyProgress ? Math.min(currentCompletion, 100) : undefined}
               sx={{
-                width: 44, height: 44, borderRadius: '50%',
-                bgcolor: 'rgba(255,255,255,0.15)',
-                border: '2px solid rgba(255,255,255,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0, overflow: 'hidden',
+                height: 4, borderRadius: 2,
+                bgcolor: 'rgba(255,255,255,0.2)',
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: isOnTrack ? '#86efac' : '#fbbf24',
+                  borderRadius: 2,
+                },
               }}
-            >
-              <Box
-                component="img"
-                src="/logo.svg"
-                alt="IEM Vibe logo"
-                sx={{ width: 36, height: 36 }}
-              />
-            </Box>
-            <Box>
-              <Typography
-                variant="h5"
-                sx={{ color: 'white', lineHeight: 1.1, fontWeight: 700, letterSpacing: '-0.3px' }}
-              >
-                IEM Vibe
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.7rem' }}
-              >
-                Diet Tracker
-              </Typography>
-            </Box>
-          </Stack>
+            />
+          </Box>
 
           <Chip
             icon={
@@ -460,6 +471,13 @@ function AppContent() {
               label="Notes"
               value="notes"
               icon={<NoteAltIcon sx={{ fontSize: 16 }} />}
+              iconPosition="start"
+              sx={{ minHeight: 48 }}
+            />
+            <Tab
+              label="Exchanges"
+              value="exchanges"
+              icon={<MenuBookIcon sx={{ fontSize: 16 }} />}
               iconPosition="start"
               sx={{ minHeight: 48 }}
             />
@@ -542,135 +560,6 @@ function AppContent() {
 
           {/* ── Main content ── */}
           <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
-
-            {/* ── Progress Summary Card ── */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.5,
-                mb: 1.5,
-                background: isOnTrack
-                  ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
-                  : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                border: '1px solid',
-                borderColor: isOnTrack ? '#bbf7d0' : '#fde68a',
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-              >
-                Today's Progress
-              </Typography>
-
-              <Stack direction="row" alignItems="center" spacing={2.5} sx={{ mt: 1.5 }}>
-                <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                  <CircularProgress
-                    variant="determinate"
-                    value={100}
-                    size={88}
-                    thickness={5}
-                    sx={{
-                      color: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                    }}
-                  />
-                  <CircularProgress
-                    variant="determinate"
-                    value={Math.min(currentCompletion, 100)}
-                    size={88}
-                    thickness={5}
-                    sx={{ color: isOnTrack ? '#16a34a' : '#f59e0b' }}
-                  />
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontWeight: 800,
-                        lineHeight: 1,
-                        fontSize: '1.15rem',
-                        color: isOnTrack ? '#16a34a' : '#d97706',
-                      }}
-                    >
-                      {Math.round(currentCompletion)}%
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', mt: 0.25 }}>
-                      done
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    Expected right now
-                  </Typography>
-                  <Typography
-                    variant="h4"
-                    sx={{
-                      fontWeight: 800,
-                      lineHeight: 1,
-                      color: isOnTrack ? '#16a34a' : '#d97706',
-                      mb: 0.75,
-                    }}
-                  >
-                    {Math.round(targetPct * 100)}%
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: 2,
-                      bgcolor: isOnTrack ? '#dcfce7' : '#fef3c7',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{ fontWeight: 700, color: isOnTrack ? '#16a34a' : '#d97706' }}
-                    >
-                      {isOnTrack
-                        ? 'On Track'
-                        : `${Math.round(targetPct * 100 - currentCompletion)}% behind`
-                      }
-                    </Typography>
-                  </Box>
-                </Box>
-              </Stack>
-
-              <LinearProgress
-                variant="determinate"
-                value={Math.min(currentCompletion, 100)}
-                sx={{
-                  height: 7,
-                  mt: 2,
-                  bgcolor: isOnTrack ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.2)',
-                  '& .MuiLinearProgress-bar': {
-                    bgcolor: isOnTrack ? '#16a34a' : '#f59e0b',
-                  },
-                }}
-              />
-            </Paper>
 
             {/* ── Day Notes ── */}
             {notes.length > 0 && (
@@ -937,6 +826,7 @@ function AppContent() {
           <ChatSidebar
             fullPage
             externalTab={chatTabView}
+            connectionStatus={connectionStatus}
             open
             date={dateStr}
             messages={chatMessages}
@@ -949,6 +839,11 @@ function AppContent() {
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
           />
+        </Box>
+
+        {/* ── Exchanges tab ── */}
+        <Box sx={{ display: activeTab === 'exchanges' ? 'block' : 'none' }}>
+          <FoodExchangesBrowser />
         </Box>
 
       </Container>
@@ -978,6 +873,7 @@ function AppContent() {
           <BottomNavigationAction label="Labs" value="lab-reports" icon={<ScienceIcon />} sx={{ minWidth: 0, px: 0.5 }} />
           <BottomNavigationAction label="Chat" value="chat" icon={<ChatIcon />} sx={{ minWidth: 0, px: 0.5 }} />
           <BottomNavigationAction label="Notes" value="notes" icon={<NoteAltIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="Exchanges" value="exchanges" icon={<MenuBookIcon />} sx={{ minWidth: 0, px: 0.5 }} />
         </BottomNavigation>
       </Box>
     </Box>
