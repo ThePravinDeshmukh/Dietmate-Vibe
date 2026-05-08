@@ -425,6 +425,107 @@ app.delete('/api/notes', async (req, res) => {
   }
 });
 
+// --- Health Tracking (ketones, urine, liquid intake) ---
+
+app.get('/api/health-tracking', async (req, res) => {
+  try {
+    const dateParam = req.query.date;
+    if (!dateParam) return res.status(400).json({ error: 'Missing date' });
+    const doc = await db.collection('health_tracking').findOne({ dateStr: dateParam });
+    res.json({
+      ketones:      doc?.ketones      || [],
+      urineEvents:  doc?.urineEvents  || [],
+      liquidIntake: doc?.liquidIntake || [],
+    });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/health-tracking/ketone', async (req, res) => {
+  try {
+    const { date, level } = req.body;
+    if (!date || !['trace', 'small', 'moderate', 'large'].includes(level))
+      return res.status(400).json({ error: 'Missing date or invalid level' });
+    const entry = { level, createdAt: new Date() };
+    await db.collection('health_tracking').updateOne(
+      { dateStr: date },
+      { $push: { ketones: entry }, $setOnInsert: { dateStr: date } },
+      { upsert: true }
+    );
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ ketones: doc?.ketones || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/health-tracking/ketone', async (req, res) => {
+  try {
+    const { date, createdAt } = req.body;
+    if (!date || !createdAt) return res.status(400).json({ error: 'Missing date or createdAt' });
+    await db.collection('health_tracking').updateOne(
+      { dateStr: date },
+      { $pull: { ketones: { createdAt: new Date(createdAt) } } }
+    );
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ ketones: doc?.ketones || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/health-tracking/urine', async (req, res) => {
+  try {
+    const { date } = req.body;
+    if (!date) return res.status(400).json({ error: 'Missing date' });
+    const entry = { createdAt: new Date() };
+    await db.collection('health_tracking').updateOne(
+      { dateStr: date },
+      { $push: { urineEvents: entry }, $setOnInsert: { dateStr: date } },
+      { upsert: true }
+    );
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ urineEvents: doc?.urineEvents || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/health-tracking/urine', async (req, res) => {
+  try {
+    const { date, createdAt } = req.body;
+    if (!date || !createdAt) return res.status(400).json({ error: 'Missing date or createdAt' });
+    await db.collection('health_tracking').updateOne(
+      { dateStr: date },
+      { $pull: { urineEvents: { createdAt: new Date(createdAt) } } }
+    );
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ urineEvents: doc?.urineEvents || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/health-tracking/liquid', async (req, res) => {
+  try {
+    const { date, ml } = req.body;
+    if (!date || typeof ml !== 'number' || ml <= 0)
+      return res.status(400).json({ error: 'Missing date or invalid ml' });
+    const entry = { ml, createdAt: new Date() };
+    await db.collection('health_tracking').updateOne(
+      { dateStr: date },
+      { $push: { liquidIntake: entry }, $setOnInsert: { dateStr: date } },
+      { upsert: true }
+    );
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ liquidIntake: doc?.liquidIntake || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/health-tracking/liquid', async (req, res) => {
+  try {
+    const { date, createdAt } = req.body;
+    if (!date || !createdAt) return res.status(400).json({ error: 'Missing date or createdAt' });
+    await db.collection('health_tracking').updateOne(
+      { dateStr: date },
+      { $pull: { liquidIntake: { createdAt: new Date(createdAt) } } }
+    );
+    const doc = await db.collection('health_tracking').findOne({ dateStr: date });
+    res.json({ liquidIntake: doc?.liquidIntake || [] });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // Chat assistant
 app.get('/api/chat/models', listModels);
 app.post('/api/chat', (req, res) => handleChat(req, res, db));
