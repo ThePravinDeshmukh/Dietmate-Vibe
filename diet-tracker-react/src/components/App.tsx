@@ -21,6 +21,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import ScienceIcon from '@mui/icons-material/Science';
 import ChatIcon from '@mui/icons-material/Chat';
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { CloudDone, CloudOff } from '@mui/icons-material';
@@ -31,13 +32,14 @@ import { DietHistory } from './DietHistory';
 import DietHistoryTable from './DietHistoryTable';
 import LabReports from './LabReports';
 import { ChatSidebar } from './ChatSidebar';
+import FoodExchangesBrowser from './FoodExchangesBrowser';
 import { useChat } from '../hooks/useChat';
 import { useNotes } from '../hooks/useNotes';
 import { DAILY_REQUIREMENTS } from '../../shared/requirements.js';
 
 const API_BASE_URL = '/api';
 
-type AppTab = 'tracker' | 'history' | 'table' | 'lab-reports' | 'chat' | 'notes';
+type AppTab = 'tracker' | 'history' | 'table' | 'lab-reports' | 'chat' | 'notes' | 'exchanges';
 
 const DIET_SCHEDULE = [
   { time: '08:00 AM', action: 'Medication', item: 'Biotin, Atrest, Carnisure, Neutrolin' },
@@ -472,6 +474,13 @@ function AppContent() {
               iconPosition="start"
               sx={{ minHeight: 48 }}
             />
+            <Tab
+              label="Exchanges"
+              value="exchanges"
+              icon={<MenuBookIcon sx={{ fontSize: 16 }} />}
+              iconPosition="start"
+              sx={{ minHeight: 48 }}
+            />
           </Tabs>
         </Container>
       </Box>
@@ -832,6 +841,11 @@ function AppContent() {
           />
         </Box>
 
+        {/* ── Exchanges tab ── */}
+        <Box sx={{ display: activeTab === 'exchanges' ? 'block' : 'none' }}>
+          <FoodExchangesBrowser />
+        </Box>
+
       </Container>
 
       {/* ── Mobile Bottom Navigation ── */}
@@ -859,6 +873,7 @@ function AppContent() {
           <BottomNavigationAction label="Labs" value="lab-reports" icon={<ScienceIcon />} sx={{ minWidth: 0, px: 0.5 }} />
           <BottomNavigationAction label="Chat" value="chat" icon={<ChatIcon />} sx={{ minWidth: 0, px: 0.5 }} />
           <BottomNavigationAction label="Notes" value="notes" icon={<NoteAltIcon />} sx={{ minWidth: 0, px: 0.5 }} />
+          <BottomNavigationAction label="Exchanges" value="exchanges" icon={<MenuBookIcon />} sx={{ minWidth: 0, px: 0.5 }} />
         </BottomNavigation>
       </Box>
     </Box>
