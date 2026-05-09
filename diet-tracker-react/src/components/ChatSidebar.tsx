@@ -60,7 +60,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
   const [showPrompt, setShowPrompt] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { notes, saving: notesSaving, addNote, deleteNote } = useNotes(date, connectionStatus);
-  const { ketones, urineEvents, liquidIntake, saving: healthSaving, addKetone, deleteKetone, addUrine, deleteUrine, addLiquid, deleteLiquid, updateKetone, updateUrine, updateLiquid } = useHealthTracking(date);
+  const { ketones, urineEvents, liquidIntake, saving: healthSaving, addKetone, deleteKetone, addUrine, deleteUrine, addLiquid, deleteLiquid, updateKetone, updateUrine, updateLiquid } = useHealthTracking(date, connectionStatus);
   const [selectedKetoneLevel, setSelectedKetoneLevel] = useState<KetoneLevel>('trace');
   const [liquidMl, setLiquidMl] = useState('');
 
@@ -287,7 +287,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
-                <IconButton size="small" color="primary" onClick={handleAddKetone} disabled={healthSaving} aria-label="add ketone">
+                <IconButton size="small" color="primary" onClick={handleAddKetone} aria-label="add ketone">
                   <AddIcon fontSize="small" />
                 </IconButton>
               </Stack>
@@ -310,10 +310,11 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                     </Box>
                   ) : (
                     <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
-                      sx={{ px: 1, py: 0.25, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 1 }}>
+                      sx={{ px: 1, py: 0.25, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: k.pending ? '3px solid #86efac' : '1px solid #bbf7d0', borderRadius: 1 }}>
                       <Typography variant="caption" sx={{ fontWeight: 600 }}>{k.level}</Typography>
                       <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                         {new Date(k.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        {k.pending && ' · pending'}
                       </Typography>
                       <Stack direction="row">
                         <IconButton size="small" onClick={() => openEdit('ketone', k.createdAt, { level: k.level })}
@@ -338,7 +339,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
               </Typography>
               <Stack direction="row" alignItems="center" sx={{ mt: 0.5, mb: 0.5 }}>
                 <Button size="small" variant="outlined" startIcon={<WaterDropIcon sx={{ fontSize: 14 }} />}
-                  onClick={handleAddUrine} disabled={healthSaving}
+                  onClick={handleAddUrine}
                   sx={{ fontSize: '0.75rem', py: 0.5, px: 1.25, borderRadius: '6px', textTransform: 'none' }}>
                   Log
                 </Button>
@@ -360,10 +361,11 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                     </Box>
                   ) : (
                     <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
-                      sx={{ px: 1, py: 0.25, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 1 }}>
+                      sx={{ px: 1, py: 0.25, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: u.pending ? '3px solid #93c5fd' : '1px solid #bfdbfe', borderRadius: 1 }}>
                       <Typography variant="caption">{u.label || `event ${i + 1}`}</Typography>
                       <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                         {new Date(u.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        {u.pending && ' · pending'}
                       </Typography>
                       <Stack direction="row">
                         <IconButton size="small" onClick={() => openEdit('urine', u.createdAt, { label: u.label || '' })}
@@ -398,7 +400,7 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                   inputProps={{ min: 1 }}
                 />
                 <IconButton size="small" color="primary" onClick={handleAddLiquid}
-                  disabled={healthSaving || !liquidMl || parseFloat(liquidMl) <= 0} aria-label="add liquid">
+                  disabled={!liquidMl || parseFloat(liquidMl) <= 0} aria-label="add liquid">
                   <AddIcon fontSize="small" />
                 </IconButton>
               </Stack>
@@ -418,10 +420,11 @@ export function ChatSidebar({ open, date, messages, onSendMessage, onRetry, load
                     </Box>
                   ) : (
                     <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
-                      sx={{ px: 1, py: 0.25, bgcolor: '#fefce8', border: '1px solid #fde68a', borderRadius: 1 }}>
+                      sx={{ px: 1, py: 0.25, bgcolor: '#fefce8', border: '1px solid #fde68a', borderLeft: l.pending ? '3px solid #fcd34d' : '1px solid #fde68a', borderRadius: 1 }}>
                       <Typography variant="caption" sx={{ fontWeight: 600 }}>{l.ml} ml</Typography>
                       <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                         {new Date(l.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        {l.pending && ' · pending'}
                       </Typography>
                       <Stack direction="row">
                         <IconButton size="small" onClick={() => openEdit('liquid', l.createdAt, { ml: l.ml })}
